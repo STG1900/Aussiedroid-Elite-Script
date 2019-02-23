@@ -1,0 +1,542 @@
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// MACRO VARIABLE INITALISATION //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+	int mRequestDock, mShowGameStats, mJumpPrevSubSys, mJumpNextSubSys, mSignalLights, mSignalLightsLong;
+	int mPowerEngSys, mPowerEngWep, mPowerSysWep, mPowerSysEng, mPowerWepSys, mPowerWepEng, mSplitPowerEng, mSplitPowerSys, mSplitPowerWep, mPowerTank, mPowerOffensive;
+	int mThrottleFwdOnly, mThrottleFullScale, mThrottlePrecision, mThrottleTrimmed, mThrottleFullScaleCustom;
+	int mTextHostileAttack, mTextHostileMock, mTextHostileDemand, mTextHostileScanning, mTextPassiveHail, mTextPassiveFarewell, mTextPassiveHonk, mTextPassiveSurrender;
+	int mTextFriendlyThanks, mTextFriendlyFollow, mTextFriendlyOfferAid, mTextFriendlyDeter, mTextBasicHello, mTextBasicHonk, mTextBasicQuery, mTextBasicAttack;
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// HARDWARE MAPPINGS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+	int initSetJoystickCurves() {																// FLAP position sets joystick curve profile
+		int profile = 1;																		// Three different presets are selectable on the fly
+		if (Throttle[FLAPU]) profile = 0;
+			if (Throttle[FLAPD]) profile = 2;
+			SetSCurve(&Joystick, JOYX, 0, JS_DEADZONE, 0, JS_CURVE[profile], JS_ZOOM[profile]);
+			SetSCurve(&Joystick, JOYY, 0, JS_DEADZONE, 0, JS_CURVE[profile], JS_ZOOM[profile]);
+			printf("Joystick Profile[%d]: Curve=%d, Zoom=%d\x0a", profile, JS_CURVE[profile], JS_ZOOM[profile]);
+	}
+																								// Autopilot Select Switch position sets Throttle Curve profile
+	int initSetThrottleCurves() {																// Three different presets are selectable on the fly
+		mThrottleFwdOnly = EXEC(  																// Initialising Throttle Forward Only Preset (SRV etc)
+								"TrimDXAxis(DX_Z_AXIS, SET(-1024));"							// *TrimDXAxis(axis, +/-1024) trim is additive, SET forces trim value, CURRENT reads axis.pos
+								"if(CruiseOnThrottle == 0) SetSCurve(&Throttle, THR_RIGHT, 0, -100, 0, 0);" 	// *SetSCurve(&Device, axis, left_deadzone%, center_deadzone%, right_deadzone%, curve(-20...20), scale)
+								"if(CruiseOnThrottle == 1) SetSCurve(&Throttle, THR_RIGHT, 0, -90, 0, 0);"		// Trims Axis 10% when Supercruise On Throttle Active
+								"printf(\"Throttle Profile: FORWARD ONLY [0 -> 100]\\x0a\");"
+								"SetThrottle();"); 												
+		mThrottleFullScale = EXEC(  															// Make Throttle Linear & Full Scale	(Default: Full Range)	
+								"TrimDXAxis(DX_Z_AXIS, SET(0));"								// Initialising Throttle Full Scale Preset 
+								"if(CruiseOnThrottle == 0) SetSCurve(&Throttle, THR_RIGHT, 0, 5, 0, 0);"		// ..(Alternative= "SetJCurve(&Throttle, THR_RIGHT, 50, 50);")
+								"if(CruiseOnThrottle == 1) SetJCurve(&Throttle, THR_RIGHT, 90, 100);"			// Trims Axis 10% when Supercruise On Throttle Active
+								"printf(\"Throttle Profile: FULL SCALE [-100 -> 100]\\x0a\");"
+								"SetThrottle();");												// *SetJCurve(&device, axis, physical axis value%, DirectX output value%)
+		mThrottlePrecision = EXEC( 																// Initialising Throttle Precision Preset (Docking etc)
+								"TrimDXAxis(DX_Z_AXIS, SET(0));" 								// Allows Throttle Movement ONLY to the middle of blue zone
+								"SetSCurve(&Throttle, THR_RIGHT, 0, 2, 0, 2, -2);"
+								"printf(\"Throttle Profile: PRECISION [-50 -> 50]\\x0a\");"
+								"SetThrottle();");
+		mThrottleTrimmed = EXEC(  																// Initialising Throttle Trimmed 25% @ Beginning/End Preset (ALTERNATIVE)
+								"TrimDXAxis(DX_Z_AXIS, SET(0));" 								// <Unmapped>
+								"SetSCurve(&Throttle, THR_RIGHT, -50, 0, -50, 0);"
+								"printf(\"Throttle Profile: TRIMMED [-75 -> 75]\\x0a\");"
+								"SetThrottle();");
+		mThrottleFullScaleCustom = EXEC(  														// Initialising Throttle Full Scale - Max Shorter @ 80% Preset (ALTERNATIVE)
+								"TrimDXAxis(DX_Z_AXIS, SET(0));" 								// Slightly Shorter Fwd travel distance for RSeat RS1 Cockpit.
+								"SetJCurve(&Throttle, THR_RIGHT, 80, 100);"						// <Unmapped>
+								"printf(\"Throttle Profile: FULL SCALE CUSTOM [-100 -> 80]\\x0a\");"
+								"SetThrottle();");
+	}
+
+	int initJoystickAxis() { 																	// Set Default Joystick Axis
+		MapAxis(&Joystick, JOYX, DX_X_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);
+			SetSCurve(&Joystick, JOYX, 0, 0, 0, 0, 0);
+		MapAxis(&Joystick, JOYY, DX_Y_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);
+			SetSCurve(&Joystick, JOYY, 0, 0, 0, 0, 0);
+			printf("-----------------------------------------------------------------------------------------------------------------------------------------------\x0a");
+			printf("Initialising Joystick Axis ... ");
+	}
+
+	int initThrottleAxis() { 																	// Set Default Throttle Axis
+		MapAxis(&Throttle, THR_RIGHT, DX_Z_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);					// Set Right Throttle
+			SetJCurve(&Throttle, THR_RIGHT, 50, 50);
+		MapAxis(&Throttle, THR_LEFT, DX_ZROT_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);					// Set Left Throttle
+			SetSCurve(&Throttle, THR_LEFT, 0, 0, 0, 0, 0);
+		MapAxis(&Throttle, SCX, DX_XROT_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);						// Set Slew Control X Axis
+			SetSCurve(&Throttle, SCX, 0, 20, 0, 2, -1);
+		MapAxis(&Throttle, SCY, DX_YROT_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);						// Set Slew Control Y Axis
+			SetSCurve(&Throttle, SCY, 0, 20, 0, 2, -1);
+		MapAxis(&Throttle, THR_FC, DX_SLIDER_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);					// Set Friction Control Axis Curve (Sensor Range Zoom Scaling) 
+			if(CustomDXSliderCurve == 0) SetSCurve(&Throttle, THR_FC, 0, 0, 0, 0, 0);									// (Default)
+			if(CustomDXSliderCurve == 1) SetCustomCurve(&Throttle, THR_FC, LIST(0,0, 33,25, 66,50, 80,75, 100,100)); 	// (OPTIONAL OVERRIDE) (Linear Recommended in ED) *LIST(Axis physical position, Axis output Value)
+		printf("Initialising Throttle Axis\x0a");
+		printf("-----------------------------------------------------------------------------------------------------------------------------------------------\x0a");
+	}
+	int SetThrottle() {																			// Prevents Throttle jumping around on mode changes
+		DXAxis(DX_Z_AXIS, -AxisVal(Throttle[THR_RIGHT], &axdata));
+	}
+
+	int initTFRPRudder() {																		// Initialise Thrustmaster Rudder Pedal Axes (When enabled in AD_EDSettings)
+		MapAxis(&TFRPRudder, TRUDDER,  DX_Z_AXIS, AXIS_NORMAL,   MAP_ABSOLUTE);					// *UNTESTED*
+		MapAxis(&TFRPRudder, TRPLEFT,  DX_X_AXIS, AXIS_REVERSED, MAP_ABSOLUTE);
+		MapAxis(&TFRPRudder, TRPRIGHT, DX_Y_AXIS, AXIS_REVERSED, MAP_ABSOLUTE);
+		}
+	
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// CUSTOM MACROS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+																								// MACROS Include a series of automated key presses to perform a specific task.
+
+	int initCustomCommands() {																	// MACRO: Auto-Docking Request
+		mRequestDock = CHAIN(  
+			LOCK+PULSE+TargetPanel, D(),
+			PULSE+UINextPanel, D(),																// Limitation: This will only work correctly if Target Panel cursor in 
+			PULSE+UINextPanel, D(),																//			   default/orig position, else will be misaligned.
+			PULSE+UISelect, D(),
+			PULSE+UIDown, D(),
+			PULSE+UISelect, D(),
+			PULSE+UIPrevPanel, D(),
+			PULSE+UIPrevPanel, D(),
+			PULSE+UIBack, LOCK);
+
+		mShowGameStats = CHAIN(																	// MACRO: Display the combined OSD FPS & Bandwidth meters
+			PULSE+ShowFramerate, D(150),
+			PULSE+ShowConnectionStatus);
+
+	    mSignalLights = CHAIN(																	// MACRO: Flash Ship/SRV Lights (Standard)
+	    	DOWN+ShipLights, D(800),															// Will turn lights on & off 3 times @ short intervals
+	    	UP+ShipLights, D(600),
+	    	DOWN+ShipLights, D(1000),
+	    	UP+ShipLights, D(700),
+	    	DOWN+ShipLights, D(1000),
+	    	UP+ShipLights);
+	    	
+	    mSignalLightsLong = CHAIN(																// MACRO: Flash Ship/SRV Lights (Long)
+	    	DOWN+ShipLights, D(800),															// Will turn lights on & off 6 times @ short intervals
+	    	UP+ShipLights, D(600),
+	    	DOWN+ShipLights, D(1000),
+	    	UP+ShipLights, D(700),
+	    	DOWN+ShipLights, D(1000),
+	    	UP+ShipLights, D(750),
+	    	DOWN+ShipLights, D(1300),
+	    	UP+ShipLights, D(800),
+	    	DOWN+ShipLights, D(1000),
+	    	UP+ShipLights, D(650),
+	    	DOWN+ShipLights, D(1000),
+	    	UP+ShipLights);
+
+		mJumpPrevSubSys = CHAIN(																// MACRO: Select Previous Subsystem x6 (Targets Powerplant, or close to it)
+			PULSE+SelectPrevSubsystem, D(),														// HOLD down Previous Subsystem button to activate
+			PULSE+SelectPrevSubsystem, D(),														// <Unmapped>
+			PULSE+SelectPrevSubsystem, D(),
+			PULSE+SelectPrevSubsystem, D(),
+			PULSE+SelectPrevSubsystem, D(),
+			PULSE+SelectPrevSubsystem);
+
+		mJumpNextSubSys = CHAIN(																// MACRO: Select Next Subsystem x5 (Targets ??, or close to it)
+			PULSE+SelectNextSubsystem, D(),														// HOLD down Next Subsystem button to activate
+			PULSE+SelectNextSubsystem, D(),														// <Unmapped>
+			PULSE+SelectNextSubsystem, D(),
+			PULSE+SelectNextSubsystem, D(),
+			PULSE+SelectNextSubsystem);
+
+		mPowerEngSys = CHAIN(																	// MACRO: Advanced PIP Management: 4xENG, 2xSYS
+			PULSE+BalancePower, D(),															// HOLD down PIP to Engines button to activate
+			PULSE+PowerEng, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerEng);
+
+		mPowerEngWep = CHAIN(																	// MACRO: Advanced PIP Management: 4xENG, 2xWEP
+			PULSE+BalancePower, D(),															// LONG HOLD down PIP to Engines button to activate 
+			PULSE+PowerEng, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerEng);
+			
+		mPowerSysWep = CHAIN(																	// MACRO: Advanced PIP Management: 4xSYS, 2xWEP
+			PULSE+BalancePower, D(),															// LONG HOLD down PIP to System button to activate
+			PULSE+PowerSys, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerSys);
+
+		mPowerSysEng = CHAIN(																	// MACRO: Advanced PIP Management: 4xSYS, 2xENG
+			PULSE+BalancePower, D(),															// HOLD down PIP to System button to activate
+			PULSE+PowerSys, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerSys);
+
+		mPowerWepSys = CHAIN(																	// MACRO: Advanced PIP Management: 4xWEP, 2xSYS
+			PULSE+BalancePower, D(),															// LONG HOLD down PIP to Weapon button to activate
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerWep);
+
+		mPowerWepEng = CHAIN(																	// MACRO: Advanced PIP Management: 4xWEP, 2xENG
+			PULSE+BalancePower, D(),															// HOLD down PIP to Weapon button to activate
+			PULSE+PowerWep, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerWep);			
+
+		mSplitPowerEng = CHAIN(																	// MACRO: PIP ALTERNATIVE: 4xENG, 1xSYS, 1xWEP
+			PULSE+BalancePower, D(), 															
+			PULSE+PowerEng, D(), 
+			PULSE+PowerEng);
+
+		mSplitPowerSys = CHAIN(																	// MACRO: PIP ALTERNATIVE: 4xSYS, 1xENG, 1xWEP
+			PULSE+BalancePower, D(), 															
+			PULSE+PowerSys, D(), 
+			PULSE+PowerSys);
+
+		mSplitPowerWep = CHAIN(																	// MACRO: PIP ALTERNATIVE: 4xWEP, 1xSYS, 1xENG
+			PULSE+BalancePower, D(), 															
+			PULSE+PowerWep, D(), 
+			PULSE+PowerWep);
+
+		mPowerTank = CHAIN(																		// MACRO: PIP ALTERNATIVE: 3xWEP, 3xSYS
+			PULSE+BalancePower, D(),															// HOLD down Balance PIPs button to activate
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys);
+
+		mPowerOffensive = CHAIN(																// MACRO: PIP ALTERNATIVE: 3xWEP, 3xENG 
+			PULSE+BalancePower, D(),															// LONG HOLD down Balance PIPs button to activate
+			PULSE+PowerEng, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerWep);
+		}
+
+																								// TEXT CHAT MACROS:
+																								// Tip: For Capitals = d(50), For Standard Chars = d(15),
+	int initCustomTextCommands() {																//		For Double Letters & Spaces = d()
+		mTextHostileAttack = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// You're a disgrace! Die! Time to see the Rebuy!
+						           		PULSE+'Y', D(50), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+'\'',D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+										PULSE+'a', D(15), PULSE+' ', D()  , PULSE+'d', D(15), PULSE+'i', D(15), PULSE+'s', D(15), PULSE+'g', D(15), PULSE+'r', D(15), PULSE+'a', D(15), PULSE+'c', D(15), PULSE+'e', D(15), PULSE+'!', D(15), PULSE+' ', D(),					           
+						           		PULSE+'D', D(50), PULSE+'i', D(15), PULSE+'e', D(15), PULSE+'!', D(15), PULSE+' ', D(15),
+						           		PULSE+'T', D(50), PULSE+'i', D(15), PULSE+'m', D(15), PULSE+'e', D(15), PULSE+' ', D()  , PULSE+'t', D(15), PULSE+'o', D(15), PULSE+' ', D(),
+										PULSE+'s', D(15), PULSE+'e', D()  , PULSE+'e', D(15), PULSE+' ', D()  , PULSE+'t', D(15), PULSE+'h', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+										PULSE+'R', D(50), PULSE+'e', D(15), PULSE+'b', D(15), PULSE+'u', D(15), PULSE+'y', D(15), PULSE+'!', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextHostileMock = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// I fart in your general direction :/
+						           		PULSE+'I', D(50), PULSE+' ', D()  , PULSE+'f', D(15), PULSE+'a', D(15), PULSE+'r', D(15), PULSE+'t', D(15), PULSE+' ', D(),
+						           		PULSE+'i', D(15), PULSE+'n', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+'r', D(15), PULSE+' ', D(),
+						           		PULSE+'g', D(15), PULSE+'e', D(15), PULSE+'n', D(15), PULSE+'e', D(15), PULSE+'r', D(15), PULSE+'a', D(15), PULSE+'l', D(15), PULSE+' ', D(),
+						           		PULSE+'d', D(15), PULSE+'i', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+'c', D(15), PULSE+'t', D(15), PULSE+'i', D(15), PULSE+'o', D(15), PULSE+'n', D(15), PULSE+' ', D(), PULSE+'\:', D(),  PULSE+'\/', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);		
+		mTextHostileDemand = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// How much cargo is your life worth? Hand it over!
+						           		PULSE+'H', D(50), PULSE+'o', D(15), PULSE+'w', D(15), PULSE+' ', D()  , PULSE+'m', D(15), PULSE+'u', D(15), PULSE+'c', D(15), PULSE+'h', D(15), PULSE+' ', D(),
+										PULSE+'c', D(15), PULSE+'a', D(15), PULSE+'r', D(15), PULSE+'g', D(15), PULSE+'o', D(15), PULSE+' ', D(15), PULSE+'i', D(15), PULSE+'s', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+'r', D(15), PULSE+' ', D(),					           
+						           		PULSE+'l', D(15), PULSE+'i', D(15), PULSE+'f', D(15), PULSE+'e', D(15), PULSE+' ', D()  , PULSE+'w', D(15), PULSE+'o', D(15), PULSE+'r', D(15), PULSE+'t', D(15), PULSE+'h', D(15), PULSE+'?', D(15), PULSE+' ', D(),
+										PULSE+'H', D(50), PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'d', D(15), PULSE+' ', D()  , PULSE+'i', D(15), PULSE+'t', D(15), PULSE+' ', D(),
+										PULSE+'o', D(15), PULSE+'v', D(15), PULSE+'e', D(15), PULSE+'r', D(15), PULSE+'!', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextHostileScanning = CHAIN(	PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Stay calm, cut your engines and prepare to be scanned. Move and you will be fired upon.
+						           		PULSE+'S', D(50), PULSE+'t', D(15), PULSE+'a', D(15), PULSE+'y', D(15), PULSE+' ', D()  , PULSE+'c', D(15), PULSE+'a', D(15), PULSE+'l', D(15), PULSE+'m', D(15), PULSE+',', D(15), PULSE+' ', D(),
+										PULSE+'c', D(15), PULSE+'u', D(15), PULSE+'t', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+'r', D(15), PULSE+' ', D()  , PULSE+'e', D(15), PULSE+'n', D(15), PULSE+'g', D(15), PULSE+'i', D(15), PULSE+'n', D(15), PULSE+'e', D(15), PULSE+'s', D(15), PULSE+' ', D(),				           
+						           		PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'d', D(15), PULSE+' ', D()  , PULSE+'p', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+'p', D(15), PULSE+'a', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+						           		PULSE+'t', D(15), PULSE+'o', D(15), PULSE+' ', D()  , PULSE+'b', D(15), PULSE+'e', D(15), PULSE+' ', D()  , PULSE+'s', D(15), PULSE+'c', D(15), PULSE+'a', D(15), PULSE+'n', D()  , PULSE+'n', D(15), PULSE+'e', D(15), PULSE+'d', D(15), PULSE+'.', D(15), PULSE+' ', D(),
+							           	PULSE+'M', D(50), PULSE+'o', D(15), PULSE+'v', D(15), PULSE+'e', D(15), PULSE+' ', D()  , PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'d', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+' ', D(),
+						           		PULSE+'w', D(15), PULSE+'i', D(15), PULSE+'l', D()  , PULSE+'l', D(15), PULSE+' ', D()  , PULSE+'b', D(15), PULSE+'e', D(15), PULSE+' ', D()  , PULSE+'f', D(15), PULSE+'i', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+'d', D(15), PULSE+' ', D(),
+										PULSE+'u', D(15), PULSE+'p', D(15), PULSE+'o', D(15), PULSE+'n', D(15), PULSE+'.', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+
+		mTextPassiveHail = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Greetings CMDR o7
+						           		PULSE+'G', D(50), PULSE+'r', D(15), PULSE+'e', D()  , PULSE+'e', D(15), PULSE+'t', D(15), PULSE+'i', D(15), PULSE+'n', D(15), PULSE+'g', D(15), PULSE+'s', D(15), PULSE+' ', D(),
+						           		PULSE+'C', D(50), PULSE+'M', D(50), PULSE+'D', D(50), PULSE+'R', D(50), PULSE+' ', D()  , PULSE+'o', D(15), PULSE+'7', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextPassiveFarewell = CHAIN(	PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Fly safe CMDR
+						           		PULSE+'F', D(50), PULSE+'l', D(15), PULSE+'y', D(15), PULSE+' ', D()  , PULSE+'s', D(15), PULSE+'a', D(15), PULSE+'f', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+						           		PULSE+'C', D(50), PULSE+'M', D(50), PULSE+'D', D(50), PULSE+'R', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextPassiveHonk = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Easy there! Watch where you are going CMDR
+						           		PULSE+'E', D(50), PULSE+'a', D(15), PULSE+'s', D(15), PULSE+'y', D(15), PULSE+' ', D()  , PULSE+'t', D(15), PULSE+'h', D(15), PULSE+'e', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+'!', D(15), PULSE+' ', D(),
+						           		PULSE+'W', D(50), PULSE+'a', D(15), PULSE+'t', D(15), PULSE+'c', D(15), PULSE+'h', D(15), PULSE+' ', D()  , PULSE+'w', D(15), PULSE+'h', D(15), PULSE+'e', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+						           		PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+' ', D()  , PULSE+'a', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+						           		PULSE+'g', D(15), PULSE+'o', D(15), PULSE+'i', D(15), PULSE+'n', D(15), PULSE+'g', D(15), PULSE+' ', D()  , PULSE+'C', D(50), PULSE+'M', D(50), PULSE+'D', D(50), PULSE+'R', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);	
+		mTextPassiveSurrender = CHAIN(	PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Hold your Fire! I surrender, what are your demands?
+						           		PULSE+'H', D(50), PULSE+'o', D(15), PULSE+'l', D(15), PULSE+'d', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+'r', D(15), PULSE+' ', D()  , PULSE+'F', D(50), PULSE+'i', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+'!', D(15), PULSE+' ', D(),
+						           		PULSE+'I', D(50), PULSE+' ', D()  , PULSE+'s', D(15), PULSE+'u', D(15), PULSE+'r', D()  , PULSE+'r', D(15), PULSE+'e', D(15), PULSE+'n', D(15), PULSE+'d', D(15), PULSE+'e', D(15), PULSE+'r', D(15), PULSE+',', D(15), PULSE+' ', D(),
+						           		PULSE+'w', D(15), PULSE+'h', D(15), PULSE+'a', D(15), PULSE+'t', D(15), PULSE+' ', D()  , PULSE+'a', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+						           		PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+'r', D(15), PULSE+' ', D()  , PULSE+'d', D(15), PULSE+'e', D(15), PULSE+'m', D(15), PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'d', D(15), PULSE+'s', D(15), PULSE+'?', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+				
+		mTextFriendlyThanks = CHAIN(	PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Thank you for your assistance! o7
+						           		PULSE+'T', D(50), PULSE+'h', D(15), PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'k', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+' ', D(),
+						           		PULSE+'f', D(15), PULSE+'o', D(15), PULSE+'r', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+'r', D(15), PULSE+' ', D(),
+						           		PULSE+'a', D(15), PULSE+'s', D()  , PULSE+'s', D(15), PULSE+'i', D(15), PULSE+'s', D(15), PULSE+'t', D(15), PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'c', D(15), PULSE+'e', D(15), PULSE+'!', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextFriendlyFollow = CHAIN(	PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Follow Me
+						           		PULSE+'F', D(50), PULSE+'o', D(15), PULSE+'l', D()  , PULSE+'l', D(15), PULSE+'o', D(15), PULSE+'w', D(15), PULSE+' ', D()  , PULSE+'m', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);		
+		mTextFriendlyOfferAid = CHAIN(	PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Can I help CMDR?
+						           		PULSE+'C', D(50), PULSE+'a', D(15), PULSE+'n', D(15), PULSE+' ', D()  , PULSE+'I', D(50), PULSE+' ', D()  , PULSE+'h', D(15), PULSE+'e', D(15), PULSE+'l', D(15), PULSE+'p', D(15), PULSE+' ', D()  , PULSE+'C', D(50), PULSE+'M', D(50), PULSE+'D', D(50), PULSE+'R', D(50), PULSE+'?', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextFriendlyDeter = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// I don't want conflict, but I will protect what is mine
+						           		PULSE+'I', D(50), PULSE+' ', D()  , PULSE+'d', D(15), PULSE+'o', D(15), PULSE+'n', D(15), PULSE+'\'',D(50), PULSE+'t', D(15), PULSE+' ', D()  , PULSE+'w', D(15), PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'t', D(15), PULSE+' ', D(),
+						           		PULSE+'c', D(15), PULSE+'o', D(15), PULSE+'n', D(15), PULSE+'f', D(15), PULSE+'l', D(15), PULSE+'i', D(15), PULSE+'c', D(15), PULSE+'t', D(15), PULSE+',', D(15), PULSE+' ', D()  , PULSE+'b', D(15), PULSE+'u', D(15), PULSE+'t', D(15), PULSE+' ', D(),
+						           		PULSE+'I', D(50), PULSE+' ', D()  , PULSE+'w', D(15), PULSE+'i', D(15), PULSE+'l', D()  , PULSE+'l', D(15), PULSE+' ', D()  , PULSE+'p', D(15), PULSE+'r', D(15), PULSE+'o', D(15), PULSE+'t', D(15), PULSE+'e', D(15), PULSE+'c', D(15), PULSE+'t', D(15), PULSE+' ', D(),
+						           		PULSE+'w', D(15), PULSE+'h', D(15), PULSE+'a', D(15), PULSE+'t', D(15), PULSE+' ', D()  , PULSE+'i', D(15), PULSE+'s', D(15), PULSE+' ', D()  , PULSE+'m', D(15), PULSE+'i', D(15), PULSE+'n', D(15), PULSE+'e', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+										
+		mTextBasicHello = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// CMDR! o7
+						           		PULSE+'C', D(50), PULSE+'M', D(50), PULSE+'D', D(50), PULSE+'R', D(50), PULSE+'!', D(15), PULSE+' ', D()  , PULSE+'o', D(15), PULSE+'7', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextBasicHonk = CHAIN(			PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Easy there! Watch where you are going CMDR
+						           		PULSE+'E', D(50), PULSE+'a', D(15), PULSE+'s', D(15), PULSE+'y', D(15), PULSE+' ', D()  , PULSE+'t', D(15), PULSE+'h', D(15), PULSE+'e', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+'!', D(15), PULSE+' ', D(),
+						           		PULSE+'W', D(50), PULSE+'a', D(15), PULSE+'t', D(15), PULSE+'c', D(15), PULSE+'h', D(15), PULSE+' ', D()  , PULSE+'w', D(15), PULSE+'h', D(15), PULSE+'e', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+						           		PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+' ', D()  , PULSE+'a', D(15), PULSE+'r', D(15), PULSE+'e', D(15), PULSE+' ', D(),
+						           		PULSE+'g', D(15), PULSE+'o', D(15), PULSE+'i', D(15), PULSE+'n', D(15), PULSE+'g', D(15), PULSE+' ', D()  , PULSE+'C', D(50), PULSE+'M', D(50), PULSE+'D', D(50), PULSE+'R', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);		
+		mTextBasicQuery = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// What do you want CMDR?
+						           		PULSE+'W', D(50), PULSE+'h', D(15), PULSE+'a', D(15), PULSE+'t', D(15), PULSE+' ', D()  , PULSE+'d', D(15), PULSE+'o', D(15), PULSE+' ', D()  , PULSE+'y', D(15), PULSE+'o', D(15), PULSE+'u', D(15), PULSE+' ', D()  , PULSE+'w', D(14), PULSE+'a', D(15), PULSE+'n', D(15), PULSE+'t', D(15), PULSE+' ', D(),
+										PULSE+'C', D(50), PULSE+'M', D(50), PULSE+'D', D(50), PULSE+'R', D(50), PULSE+'?', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		mTextBasicAttack = CHAIN(		PULSE+CommsPanel, D(250), PULSE+QuickCommsPanel, D(),	// Let's Rock!!
+						           		PULSE+'L', D(50), PULSE+'e', D(15), PULSE+'t', D(15), PULSE+'\'',D(15), PULSE+'s', D(15), PULSE+' ', D()  , PULSE+'R', D(50), PULSE+'o', D(15), PULSE+'c', D(15), PULSE+'k', D(15), PULSE+'!', D(15), PULSE+'!', D(15), PULSE+' ', D(),
+										PULSE+QuickCommsPanel, D(), UIEscape, D(250), UIEscape);
+		}
+
+
+	int initEscapeVector() {																	// MACRO: Disengage & Escape Vector (Hold Pinky Trigger)
+		if(AutoChaffOnEscape) ActKey(KEYON+PULSE+FireChaffLauncher);							// Optional: Auto-fire Chaff
+		ActKey(KEYON+mPowerSysEng);																// Set PIPs to SYSx4 ENGx2
+		if(AutoBoostOnEscape) ActKey(KEYON+PULSE+EngineBoost);									// Optional: Auto-fire Boost
+		if(HPoints) ActKey(KEYON+PULSE+DeployHardpoints);
+		if(HPoints) HPoints=!HPoints;
+		DeferCall(500, &ActKey, KEYON+PULSE+FrameShiftDrive);									// After Retracting Hardpoints, Engage FSD
+		}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// CUSTOM FUNCTIONS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+																								// FUNCTIONS Include logic to customise specific Button/Toggle functionality.
+
+	int initSetCombinedFire(int toggleValue) { 													// FUNCTION: Calculate Combined Fire Status
+		if(toggleValue) {																		// When disabled, Trigger 2 is independant on Pinky Button (DX3) only
+			combinePriSecFire = !combinePriSecFire;	}
+		if(combinePriSecFire){
+			printf("Trigger 2: Set to COMBINED Primary + Secondary Fire\x0a");
+			MapKey(&Joystick, TG2, CHAIN(PrimaryFire, SecondaryFire));	} 
+		else {
+			printf("Trigger 2: Set to SEPARATE Fire\x0a");
+			MapKey(&Joystick, TG2, 0);	}
+	}
+																								// FUNCTION: Advanced PIP Selection based on User Preference
+	int initAdvancedPIPManagement(){															//                 [NOTE: Set UserPIPPref in the AD_EDSettings file]
+		if(UserPIPPref == 1) {																	// STANDARD SINGLE-TIER PIPS [Elite Dangerous Default Functionality]
+			if(Joystick[H3U]) ActKey(KEYON+PULSE+PowerEng);												// [Power to Engines (1 PIP)]
+			if(Joystick[H3D]) ActKey(KEYON+PULSE+BalancePower);											// [Balance Power (1 PIP)]
+			if(Joystick[H3L]) ActKey(KEYON+PULSE+PowerSys);												// [Power to Systems (1 PIP)]
+			if(Joystick[H3R]) ActKey(KEYON+PULSE+PowerWep);												// [Power to Weapons (1 PIP)]
+			}
+		if(UserPIPPref == 2) {																	// DOUBLE-TIER PIPS       [Inc. short & long press, no modifier]
+			if(Joystick[H3U]) MapKey(&Joystick, H3U, TEMPO(PowerEng, mSplitPowerEng, PIPPressDelay));	// [Short: 1xENG, 		 Long: 4xENG 1xSYS 1xWEP]
+			if(Joystick[H3D]) MapKey(&Joystick, H3D, TEMPO(BalancePower, mPowerTank, PIPPressDelay));	// [Short: Balance,		 Long: 3xSYS 3xWEP]
+			if(Joystick[H3L]) MapKey(&Joystick, H3L, TEMPO(PowerSys, mSplitPowerSys, PIPPressDelay));	// [Short: 1xSYS, 		 Long: 4xSYS 1xENG 1xWEP]
+			if(Joystick[H3R]) MapKey(&Joystick, H3R, TEMPO(PowerWep, mSplitPowerWep, PIPPressDelay));	// [Short: 1xWEP, 		 Long: 4xWEP 1xENG 1xSYS]
+			}
+		if(UserPIPPref == 3) {																	// TRIPLE-TIER PIPS       [Inc. short/long/very long presses, no modifier]
+			if(Joystick[H3U]) MapKey(&Joystick, H3U, TEMPO(PowerEng, TEMPO(mPowerEngSys, mPowerEngWep, PIPPressDelay), PIPPressDelay));			// [Short: 1xENG, 	 Med: 4xENG 2xSYS, 	Long: 4xENG 2xWEP]
+			if(Joystick[H3D]) MapKey(&Joystick, H3D, TEMPO(BalancePower, TEMPO(mPowerTank, mPowerOffensive, PIPPressDelay), PIPPressDelay));	// [Short: Balance,  Med: 3xSYS 3xWEP,  Long: 3xENG, 3xWEP]
+			if(Joystick[H3L]) MapKey(&Joystick, H3L, TEMPO(PowerSys, TEMPO(mPowerSysEng, mPowerSysWep, PIPPressDelay), PIPPressDelay));			// [Short: 1xSYS, 	 Med: 4xSYS 2xENG,  Long: 4xSYS 2xWEP]
+			if(Joystick[H3R]) MapKey(&Joystick, H3R, TEMPO(PowerWep, TEMPO(mPowerWepEng, mPowerWepSys, PIPPressDelay), PIPPressDelay));			// [Short: 1xWEP, 	 Med: 4xWEP 2xENG,  Long: 4xWEP 2xSYS]
+			}
+	}
+																								// FUNCTION: Predefined Text Chat Comms Panel Responses
+																								//           [NOTE: Set ChatPresetMode in the AD_EDSettings file]
+	int initTextChatPresets() {																	// 3 Chat Preset Groups can be selected on-the-fly via Pinkly Throttle Switch
+		if(ChatPreset == 0) {																	// If Pinky Toggle is CENTER
+			if(ChatPresetMode == 0) {															// If Basic Chat Preset selected in AD_EDSettings.tmh, choose Basic Text Responses
+				if(Joystick[H1U]) ActKey(KEYON+PULSE+mTextBasicHello);
+				if(Joystick[H1D]) ActKey(KEYON+PULSE+mTextBasicQuery);
+				if(Joystick[H1L]) ActKey(KEYON+PULSE+mTextBasicHonk);
+				if(Joystick[H1R]) ActKey(KEYON+PULSE+mTextBasicAttack);				
+				}
+			if(ChatPresetMode == 1) {															// If Advanced Chat Preset selected in AD_EDSettings.tmh, choose Advanced Text Responses
+				if(Joystick[H1U]) ActKey(KEYON+PULSE+mTextPassiveHail);
+				if(Joystick[H1D]) ActKey(KEYON+PULSE+mTextPassiveFarewell);
+				if(Joystick[H1L]) ActKey(KEYON+PULSE+mTextPassiveHonk);
+				if(Joystick[H1R]) ActKey(KEYON+PULSE+mTextPassiveSurrender);
+				}
+			}
+		if(ChatPreset == 1) {																	// If Pinky Toggle is UP
+			if(Joystick[H1U]) ActKey(KEYON+PULSE+mTextHostileAttack);
+			if(Joystick[H1D]) ActKey(KEYON+PULSE+mTextHostileMock);
+			if(Joystick[H1L]) ActKey(KEYON+PULSE+mTextHostileDemand);
+			if(Joystick[H1R]) ActKey(KEYON+PULSE+mTextHostileScanning);
+			}
+		if(ChatPreset == 2) {																	// If Pinky Toggle is DOWN
+			if(Joystick[H1U]) ActKey(KEYON+PULSE+mTextFriendlyFollow);
+			if(Joystick[H1D]) ActKey(KEYON+PULSE+mTextFriendlyThanks);
+			if(Joystick[H1L]) ActKey(KEYON+PULSE+mTextFriendlyOfferAid);
+			if(Joystick[H1R]) ActKey(KEYON+PULSE+mTextFriendlyDeter);
+			}
+	}
+																								// TOGGLE functions ensure Warthog toggle switch keeps correct positioning.
+	int initToggleCamera(){																		// TOGGLE: External 'Debug' Camera	
+		if(Throttle[EFLNORM]){																	// Default: OFF
+			if(!inCameraMode) {																	// <Unmapped>
+				printf("External Camera Mode: ON\x0a");
+				inCameraMode = 1;
+				ActKey(KEYON+PULSE+ClassifiedCamera);
+				DeferCall(200, &ActKey, KEYON+PULSE+SPC); 										// Automatically bypasses the pop-up window on entry (Default:200ms) :)
+			}
+		}
+		if(!Throttle[EFLNORM]){
+			if(inCameraMode) {
+				printf("External Camera Mode: OFF\x0a");
+				inCameraMode = 0;
+				ActKey(KEYON+PULSE+ClassifiedCamera);
+			}
+		}
+	}
+
+	int initToggleRotationCorrection() {														// TOGGLE: Rotational Correction	
+		if(Throttle[APUON]){																	// Default: ON (Position toggle switch UP on startup)
+			if(!RCorrection) {																	// Press 'F4' to toggle manually if misaligned, or change in Sys Panel.
+				printf("Rotation Correction: ENABLED\x0a");
+				RCorrection = 1;
+				ActKey(KEYON+PULSE+RotationalCorrection);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED2)); 				// set LED 2 ON
+			}
+		}
+		if(!Throttle[APUON]){
+			if(RCorrection) {
+				printf("Rotation Correction: DISABLED\x0a");
+				RCorrection = 0;
+				ActKey(KEYON+PULSE+RotationalCorrection);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED2)); 				// set LED 2 OFF
+			}
+		}
+	
+	}
+
+	int initToggleLandingGear() {																// TOGGLE: Landing Gear	
+		if(Throttle[EACON]){																	// Default: ON (Assumes you are docked when loading into ED) 
+			if(!Gears) {																		// Press 'L' to toggle manually if starting in space, or change in Sys Panel.
+				printf("Landing Gear: DEPLOYED >>\x0a");
+				Gears = 1;
+				ActKey(KEYON+PULSE+LandingGear);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED5)); 				// set LED 5 ON
+			}
+		}
+		if(!Throttle[EACON]){
+			if(Gears) {
+				printf("Landing Gear: RETRACTED <<\x0a");
+				Gears = 0;
+				ActKey(KEYON+PULSE+LandingGear);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED5)); 				// set LED 5 OFF
+			}
+		}
+	
+	}
+	
+		int initToggleCargoScoop() {															// TOGGLE: Cargo Scoop	
+		if(Throttle[RDRNRM]){																	// Default: OFF (Closed)
+			if(!CargoSc) {																		// Press 'HOME' to toggle manually if required.
+				printf("Cargo Scoop: DEPLOYED >>\x0a");
+				CargoSc = 1;
+				ActKey(KEYON+DOWN+CargoScoop);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED4)); 				// set LED 4 ON
+			}
+		}
+		if(!Throttle[RDRNRM]){
+			if(CargoSc) {
+				printf("Cargo Scoop: RETRACTED <<\x0a");
+				CargoSc = 0;
+				ActKey(KEYON+UP+CargoScoop);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED4)); 				// set LED 4 OFF
+			}
+		}
+	
+	}
+
+	int initToggleShipLights(int toggleValue) { 												// FUNCTION: Calculate ShipLights state.
+		if(toggleValue) {																		// Dims Throttle LED Backlight intensity when active.
+			Lights = !Lights;	}																// Note: This can get a little buggy with the SRV multiple lighting levels.
+		if(Lights){																				// Press 'INSERT' to toggle manually if SRV has messed things up or extra long hold to reset.
+				printf("Lights: ^^ ILLUMINATE! ^^\x0a");
+				ActKey(KEYON+PULSE+ShipLights);
+				ActKey(ShipLights);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_INTENSITY, 50)); 							// Dim Throttle Lights
+				}
+		if(!Lights) {
+				printf("Lights:    DELUMINATE!\x0a");
+				ActKey(KEYON+PULSE+ShipLights);
+				ActKey(ShipLights);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_INTENSITY, 172)); 						// Return Throttle Lights to Default
+		}
+	}
+
+	int initEnhancedFAOFF() {																	// FUNCTION: Enhanced Joystick Curves tailored for Flight Assist Off (TOGGLE)
+		if(Throttle[SPDF]) {																	// AKA       "FAOFF LIKE A BOSS!"
+			ActKey(KEYON+DOWN+FlightAssist);
+			SetSCurve(&Joystick, JOYX, 0, 1, 0, 2, -1);											// Reduces the Joystick sensitivity on Forward TOGGLE on FA Off
+			SetSCurve(&Joystick, JOYY, 0, 1, 0, 2, -1);											// Full Joystick sensitivity remains on Back HOLD on FA Off for quick turns in combat
+			ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED1));
+			printf("FA-Off Joystick Profile [2]: Curve=2, Zoom=-1\x0a");
+			}
+		if(!Throttle[SPDF]) {
+			ActKey(KEYON+UP+FlightAssist);
+			SetSCurve(&Joystick, JOYX, 0, 1, 0, 1, 0);											// Return Joystick Curve back to default settings when disabling forward toggle
+			SetSCurve(&Joystick, JOYY, 0, 1, 0, 1, 0);											// Limitation: If you had your Joystick Curve set to UP/DOWN when enabling FA OFF,
+			ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED1));					//			   you will need to toggle back to center, then UP/DOWN again to reapply settings.
+			printf("FA-Off Joystick Profile [1]: Curve=1, Zoom=0\x0a");
+			}	
+	}
+	
+	int initIDLEMaster() {																		// FUNCTION: Enforce Throttle IDLE (Stationary) on any Throttle Mode
+		if(!Throttle[APPAT]){																	// Resets Throttle Axis to 0 for Full Range Throttle Modes
+			DXAxis(DX_ZROT_AXIS, 0);															// Prevents issues launching from stations etc
+			DXAxis(DX_Z_AXIS, 0);
+			LockAxis(&Throttle, THR_LEFT, 1);													// Lock Axes to keep null value
+			LockAxis(&Throttle, THR_RIGHT, 1);
+			ActKey(KEYON+DOWN+SRVHandbrake);													// IDLE Doubles as SRV Handbrake ON when on surface
+			}
+		if(Throttle[APPAT]) {																	// Resets Throttle Axis to 0 for Forward Only Throttle Mode
+			DXAxis(DX_ZROT_AXIS, 32767);
+			DXAxis(DX_Z_AXIS, 32767);
+			LockAxis(&Throttle, THR_LEFT, 1);													// Lock Axes to keep null value
+			LockAxis(&Throttle, THR_RIGHT, 1);
+			ActKey(KEYON+DOWN+SRVHandbrake);													// IDLE Doubles as SRV Handbrake ON when on surface
+			}	
+	}
+
+	int initStartUpCleanUp() {																	// FUNCTION: Ensure default states are defined correctly on Startup (due to my poor coding :p)
+		ActKey(KEYON+UP+SRVHandbrake);															// On Startup, ensure SRV Handbrake is not locked ON after IDLEMaster initialisation
+		LockAxis(&Throttle, THR_LEFT, 0);														// On Startup, ensures Throttle is not locked in IDLE
+		LockAxis(&Throttle, THR_RIGHT, 0);		
+	}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// REPORT SCRIPT STATES //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+	int initPrintState(){																		// Display the status of the macro toggles & user prefs on run. (Optimised for TARGET GUI)
+		printf("-----------------------------------------------------------------------------------------------------------------------------------------------\x0a");
+		printf("ENHANCEMENTS LOADING: v%d.%d TARGET Macros & Functions initialising!\x0a", ADVersionMajor, ADVersionMinor);
+		printf("-----------------------------------------------------------------------------------------------------------------------------------------------\x0a");
+		printf("USER PREFERENCES: 		Supercruise on Throttle	= %d	PIP Preset		= %d \x0a", CruiseOnThrottle, UserPIPPref);		
+		printf("Text Chat Preset Mod	= %d	MFD Active		= %d	Chaff on Escape		= %d \x0a", ChatPresetMode, UseMFD, AutoChaffOnEscape);
+		printf("LED Backlight Level	= %d	Custom Slider Curve	= %d	Boost on Escape		= %d \x0a", SetLED, CustomDXSliderCurve, AutoBoostOnEscape);	
+		printf("\x0a");	
+		printf("DEFAULT TOGGLE STATE:   	(Set Your Throttle Toggles!)\x0a");
+		printf("Combine Pri+Sec Fire	= %d	Rotational Correction 	= %d	Cargo Scoop		= %d\x0a", combinePriSecFire, RCorrection, CargoSc);
+		printf("Landing Gear		= %d	Classified Camera Mode	= %d	Ship Lights		= %d\x0a", Gears, inCameraMode, Lights);
+		printf("-----------------------------------------------------------------------------------------------------------------------------------------------\x0a");
+		printf("Starting Macros... Throttle Profile Preset: NOT DEFINED!      (Toggle Throttle Presets Before Loading ED)\x0a"); // Don't Stress! This is just a reminder to toggle the Throttle Presets toggle once before starting.
+	}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//

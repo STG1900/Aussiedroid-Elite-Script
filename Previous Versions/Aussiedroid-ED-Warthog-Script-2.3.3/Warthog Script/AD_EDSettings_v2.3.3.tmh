@@ -1,0 +1,49 @@
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// DEFAULT SETTINGS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+	define ADVersionMajor 		2						// Script Version Major Value ie. 2.x.x
+	define ADVersionMinor 		3						// Script Version Minor Value ie. x.3.x 
+	define ADVersionPoint		3						// Script Version Point Update ie x.x.1
+
+	define KBLayout 			KB_ENG					// Default Keyboard Layout 
+
+	define PulseTime 			25						// PULSE+ Delay time 	(ms)
+	define DelayTime 			75						// D() Delay time 		(ms)
+	define MiniPressDelay		110						// Shortest Delay 		(ms)
+	define ShortPressDelay 		250						// Shorter Delay 		(ms)
+	define PIPPressDelay 		333						// Specific Timing for PIP Hat Switch (ms)
+	define LongPressDelay 		500						// Standard Delay 		(ms)
+	define ExtraPressDelay 		1500					// Longest Delay (For actions you want to be VERY careful with!) (ms)
+	
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// USER PREFERENCES    (1 = Yes, 0 = No) //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+														// User Preferences allow easy modification of some alternative/optional script features without editing the code.
+														// 					(Change these to your personal preference)
+
+	define UseMFD 				0 						// One MFD = 1 (Right MFD). Two MFDs = 2 (Right & Left MFD). No MFD = 0 (default) **UNMAPPED** **UNTESTED**
+	
+	define UseRudders 			0						// None/Non-TM Rudders = 0 (default), TM T16000 Rudders (EXCLUDE) = 1, TM T16000 Rudders (INCLUDE) = 2
+														//   Any brand rudder pedals that are NOT Thrustmaster, leave value as 0. (Likewise if you are not using pedals at all)
+														//   For TM T16000 pedals, to map these directly in ED, choose 1 (default for TM T16000). To configure/customise TM T16000 pedal axes in the script, choose 2. **UNTESTED**
+	
+	define UserPIPPref 			3						// Choose your preferred PIP configuration: 
+														// Options: Triple Tier = 3 (default), Double Tier = 2, Single Tier (ED Standard One PIP) = 1
+														// (Triple = Press/Short Hold/Long Hold, Double = Press/Short Hold, Single = Press)
+
+	define ThrottlePresetUP 	mThrottleFwdOnly		// 5 Presets: mThrottleFwdOnly (Set UP) [   0 -> 100]	mThrottlePrecision	[-50 -> 50]
+	define ThrottlePresetMID 	mThrottleFullScale		// 	   To	  mThrottleFullScale		[-100 -> 100]	mThrottleTrimmed	[-75 -> 75]
+	define ThrottlePresetDOWN 	mThrottlePrecision		// 	 Choose!  mThrottleFullScaleCustom	[-100 -> 80 ]	[Note: Full Range Trimmed by ~10% when CruiseOnThrottle active]
+
+	define CruiseOnThrottle 	1						// Enable Supercruise on Throttle @ 100% = 1 (default). Disable = 0  [HOLD Pinky Trigger or CMS Hat to activate @ 100%]
+	define AutoChaffOnEscape 	0						// During Escape Vector Macro, fire a Chaff automatically to cover your escape! = 1. Disable = 0 (default)
+	define AutoBoostOnEscape 	0						// During Escape Vector Macro, fire an Engine Boost automatically to align your escape! = 1.  Disable = 0 (default)
+
+	define CustomDXSliderCurve 	1						// Enable an Offset Curve Arc for DX Slider (Radar Zoom); compensate for non-linear acceleration = 1 (default). Default ED Linear Curve = 0.
+	
+	define ChatPresetMode		1						// Choose your preferred Text Chat Macro Mode:
+														// Options: Triple Presets (4x3) = 1 (default)  [Advanced:  3 different sets of chat responses based on Pinky Toggle Postion on Throttle. For FPS/Bandwidth & HideGUI hold Pinky Trigger on Joystick]
+														//          Single Preset  (4x1) = 0 			[Basic: 	1 set of chat responses. Pinky Toggle Mapped to FPS/Bandwidth & HideGUI (Old v2.2 mapping)]
+	
+		
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//

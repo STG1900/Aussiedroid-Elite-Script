@@ -1,0 +1,17 @@
+Update 2.3.3: COMMANDERS MAINTENANCE RELEASE
+
+List of Changes:
+
+NEW: Escape Vector Macro now includes Landing Gear & Cargo Scoop checks. If they are deployed, the macro will override the toggle & retract for a quick escape.
+
+IMPROVEMENT: Escape Vector Macro timings have been improved.
+IMPROVEMENT: Combined Flight Assist Off & Alternative Flight Controls onto the Speedbrake. Hold Pinky Modifier & either direction to enable Alt. Flight (note: you do not need to keep holding the pinky while holding the Speedbrake On).
+
+FIXED: Chat Macros will now enter text correctly when the Comms Panel is already open (Should now work in ALL scenarios!)
+FIXED: Removed Video Manual Capture from China Hat Switch on long press when CruiseOnThrottle is enabled (why was that mapped there?!)
+FIXED: Restored correct SRV Digital Steering mappings in ED Profile back to the Mic Hat Switch L/R.
+FIXED: Thruster Forward/Back digital mappings on Coolie Hat Switch. This will again allow users to have access to Reverse thrust when using Forward Only Throttle mode (note: Reverse Toggle button will only work if remap to Forward Only in ED Settings, negating the benefit of the Throttle Axis Profiles in script).
+
+CODE CLEANUP: Various minor code changes, some formatting & comment updates as well.
+MAP CLEANUP: Added alternative mappings (based on CruiseOnThrottle user pref.) for the China Hat Switch to the Throttle Arm Reference Map.
+

@@ -1,0 +1,48 @@
+Update 2.3.1: Minor Fix/Changes Release
+
+IMPROVEMENT: Swapped 3 way Toggle for Joystick & Throttle Preset Curves (More logical layout & easier Joystick control when using FAOff)  
+IMPROVEMENT: Alternate 2 Tier PIP Macros mapped on Hold.
+
+FIXED: 75% Trimmed Throttle Preset range fixed.
+
+CODE CLEANUP: Additional Comments added/cleaned up.
+
+OTHER: Chat Text Macro Reference Map added to pack.
+
+
+Update 2.3.0: COMMANDERS UPDATE
+
+List of Changes:
+
+NEW: Added All new 2.3 Keybindings for Multicrew, HoloME, Camera Suite & Friends View.
+NEW: Added Text Chat Macro Presets. (3 Modes for a total of 12 presets, depending on Pinky Toggle position)
+NEW: Supercruise on 100% Throttle added! (HOLD Pinky Trigger for Supercruise & CMS Hat Switch for Hypercruise)
+NEW: Explorers Rejoice! Primary & Secondary 'Repeater Fire' Mode Added! Thumb Modifier + Pri/Sec fire to lock ON. Fire again to disable. 
+NEW: SRV Handbrake on Throttle Idle Indent returns! (Now working!)
+NEW: Added New Signal Lights Macros to Autopilot Engage button. (Short will flash lights 3x. Long Mode will flash 6x. For a-bit-a-fun:) )
+NEW: Added Alternative Mapping for Std 1-Tier & 2-Tier PIP Control. (Short press remains 1 PIP at a time, while Long Press changes to 4 PIPs and 1 in each of the minor PIPs. No extra long press for those that struggle with the 3-Tier timings.)
+NEW: Added default code for Thrustmaster MFD Panels & T.Flight Rudder (Disabled by Default & Untested!)
+NEW: Introduced User Preferences section in the AD_EDSettings file for easy script customisation for alternative or optional settings. Check it out!
+
+IMPROVEMENT: Added Optional Auto-Chaff & Engine Boost on Escape Vector Macro.
+IMPROVEMENT: Moved Retract/Deploy hardpoints to the Throttle Arm (Red Button), plus Escape Vector Macro with Pinky Trigger Modifier.
+IMPROVEMENT: Moved Alternative Flight Control on Joystick CMS Hat to FA Off Hold location on the Throttle.
+IMPROVEMENT: Moved FA Off Hold to Down on Coolie Hat Switch for easier access to combine with latteral thrusters.
+IMPROVEMENT: Moved Galaxy map panning to thumb hatswitch on throttle, and rotate to other hat. Moved Galaxy map up/down to thumb.
+IMPROVEMENT: Moved Headlook Center to Joystick, Pinky Trigger plus Up on CMS Hat.
+IMPROVEMENT: Combo fire Modifier moved to Pinky Trigger Modifier, plus Primary Fire.
+IMPROVEMENT: Redesigned the script loading diagnostic print out to better fit the default TARGET GUI window.
+IMPROVEMENT: Removed duplicate Next in Route on Joystick.
+
+FIXED: SRV Boost on Throttle Arm Slew Control.
+FIXED: A number of mappings that lost configs & updated some keyboard shortcuts.
+FIXED: Updated to latest HCS Voicepack default keys (~99% of keys now mapped).
+FIXED: Alternative Flight Control axis directions as they are now invertable in 2.3!
+FIXED: Macro Startup Cleanup.
+
+CODE CLEANUP: Moved Cargo Scoop code into a function.
+CODE CLEANUP: Moved OSD toggle into a Macro (ShowGameStats).
+CODE CLEANUP: Added TARGET print out for Throttle Presets & Cargo Scoop, and improved text.
+CODE CLEANUP: Added link to related Frontier Forums Thread in script info section.
+CODE CLEANUP: Revalidated mappings post 2.3 official release. Test OK.
+

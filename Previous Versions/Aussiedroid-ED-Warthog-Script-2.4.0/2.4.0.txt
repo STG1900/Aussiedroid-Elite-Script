@@ -1,0 +1,28 @@
+Update 2.4.0: MYSTERY UPDATE RELEASE
+
+List of Changes:
+
+NEW: Repeater Fire now offers automatic disengagement option configurable in the user preferences. (Existing Manual disengagement can still be chosen for combat pilots - Automatic is perfect for Explorers & will disengage after scanner duration)
+
+NEW: Headlook Center Function that can be configured in the user preferences. You can now choose your preferred headlook mode based on if you are using TrackIR, VR Headset or just the mouse. (This will remap the Engine Operate Ign/Norm LEFT UP toggle accordingly)
+
+NEW: Mode Switch Menu Macro added. This new feature will simply navigate the game menu to exit current session & automatically get you back to Start to choose a new game mode. (Hold down both Pinky Trigger & CMS Hat Switch Modifiers then press the Red Throttle button) 
+
+IMPROVEMENT: Swapped Rotation Correction & Silent Running toggle positions. (This gives higher priority toggle to Silent Running - easier access in combat etc)
+
+IMPROVEMENT: Finally resolved the issues with Escape Vector Macro! Some further refinements to the timings, but also better management of the hardpoint flag to ensure it works every time. This will now force hardpoint deployment then retract as part of the process (doesn't impact the time). (Note: Deploying hardpoints via Primary Fire will throw the alignment out of the macro. Technical issue I can't seem to overcome :( As such, by default I have disabled primary fire deploying hardpoints. This may not suit everyone; don't worry, I have you covered as well. If you reenable in ED Controls under Weapons, and find the alignment goes out for the macro, simply Long Hold down the hardpoint button to reset the hardpoint flag, then try again. This will take you an extra second but still much faster than doing it all manually!) 
+
+FIXED: Introduced error check code to prevent keypresses triggering during script load. (This also removes the need for the previous workaround StartupCleanup function .. yay!)
+
+FIXED: Small coding error in Secondary Fire logic (didn't seem to be impacting anything though).
+
+FIXED: Mismapping for Pitch Up on Galaxy Map.
+
+CODE CLEANUP: Massive rewrite introducing 5 new functions for core code features. Created functions for Silent Running, Microphone, Hardpoints, Docking/Signal Lights, Primary/Secondary Fire Module. This cleans up all features added since public release, more modular & easier to modify as needed for those that want to customise the default setup or use some of the code in their own scripts.
+
+CODE CLEANUP: Added new output messages in TARGET for Voice Comms, Repeater Fire & Silent Running, & cleanup of a few other messages.
+
+CODE CLEANUP: Updated Script Load Printout to add new User Preference settings.  
+
+
+Fly Safe CMDRs!

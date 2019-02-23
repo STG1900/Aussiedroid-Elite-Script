@@ -1,0 +1,11 @@
+Update 2.3.2: COMMANDERS MAINTENANCE RELEASE
+
+List of Changes:
+
+NEW: CruiseOnThrottle check for the China Hat Switch on Throttle. (This will keep default mapping with short & long presses if you are not using FSD on Throttle, else it will remove FSD from the switch, moving Orbital Lines to Up & keeping Next in Route on Down (no long press mapped)).
+
+IMPROVEMENT: Swapped Repeater / Combo Fire Modifier buttons on Pri/Sec Fire. Hold Pinky Trigger+Fire for R-Fire & CMS Hat Switch+Fire for C-Fire.
+IMPROVEMENT: Jettison All on Cargo Scoop Toggle will now correctly close the Cargo Scoop after action.
+
+FIXED: Error found in IdleMaster Function. This is now mapped correctly to the new Throttle Preset toggle location. Note: For the function to work, you will need (if you use) to place Foward Only Throttle in the UP Postion as per default mappings, else you will need to modify the button mapping in the macro function.
+

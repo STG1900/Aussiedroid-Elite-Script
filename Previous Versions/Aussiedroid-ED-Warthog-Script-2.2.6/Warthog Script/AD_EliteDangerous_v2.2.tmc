@@ -1,0 +1,281 @@
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// AUSSIEDROID'S ACKNOWLEDGEMENTS //																															//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// Standing on the Shoulders of Giants! Creation of this TARGET Script would not have been possible without amazing ED Scripts I found online created by:		//
+// Alexandr Zhevedenko, Michael Lehman (WraithMG11235) & Darkcyde0.	You All Rock! Thank you!																	//
+// 																																								//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// VERSION HISTORY //																																			//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// Version 2.2																																					//
+// Released September, 2016	(Updated Nov 16)																													//
+// =============================================================================================================================================================//
+// v2.2.6-Changed SRV Digital Steering Hat Switch, Swapped Weapon Fire Group. Add Auto-Dock Short/Long press+Pinky. No Shadowplay ref. Add Fighter Orders.		//
+// v2.2.5-Added Charge ECM button & Fixed Incorrect ED Bindings file in download.																				//
+// v2.2.4-Fixes: Changed Combo Fire Modifier from Pinky to CMS Hat Switch (avoid conflict). Improved PIP timings/refined layout. Removed SRV Handbrake conflict.//
+// v2.2 - Guardians Update: Added Fighters Hotkeys to Trim Hat, Mapped Weapon/Engine Color change. Improved IDLE saftey features. New Macros. Public Release! 	//
+// v2.1 - Added External Keymappings for TrackIR, VoiceAttack & ShadowPlay. Swapped Landing Gear & Silent Running. Changed some delay times.					//
+// v2.0 - Full script cleanup & formatting update. Added alt. Macros for PIPs & Curves to test. Added Reference table for DX Mappings & USB Key Definitions.	//
+// v1.8 - Added SetThrottle function & Handbrake to Throttle IDLE lock. Ship Lights now dim Throttle LED backlight :) Steam added & Hidden FPS/Ping keys mapped.//
+// v1.6 - Improved Toggle switch usage. Added LED output & expanded script print output in Script Editor.														//
+// v1.3 - Added Auto-dock, PIPs Macros & also Joystick & Throttle Curve presets. Plus Subsystem Prev Jump to Powerplant shortcut when holding Prev Subsystem.	//
+// v1.0 - Added All Standard KeyMaps, Default Axis settings & Core script structure/defaults. Added Trigger Combo code. Debug testing.							//
+// =============================================================================================================================================================//
+// Created by Aussiedroid (http://steamcommunity.com/id/aussiedroid/)																							//
+// Full Guide Available here (http://steamcommunity.com/sharedfiles/filedetails/?id=769637037)																	//																																							//
+//																																								//
+// Need help understanding this script?																															//
+// Target Script Editor Manual URL: http://ts.thrustmaster.com/download/accessories/pc/hotas/software/TARGET/TARGET_Script_Editor_Basics_v1.5_ENG.pdf			//
+// 																																								//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// INCLUDED FILES //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+	include "Target.tmh" 												// Default System Import (Thrustmaster Target file)
+	include "AD_EDSettings_v2.2.tmh" 									// Global Settings Definition
+	include "AD_EDKeyMap_v2.2.ttm" 										// Key Mapping
+	include "AD_EDMacros_v2.2.tmh" 										// Macros Definition
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// DEVICE CHECK //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+	int main() {														// Exclude Missing Devices
+																
+		Configure(&HCougar, MODE_EXCLUDED);
+		Configure(&T16000, MODE_EXCLUDED);
+		Configure(&LMFD, MODE_EXCLUDED);
+		Configure(&RMFD, MODE_EXCLUDED);
+
+	if(Init(&EventHandle)) return 1;
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// BASE SETTINGS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//	
+	SetKBRate(PulseTime, DelayTime);														// Base Settings (See AD_EDSettings.tmh)
+	SetKBLayout(KBLayout);
+	
+	ActKey(PULSE+KEYON+LED(&Throttle, LED_INTENSITY, 172)); 								// Enable LED Backlight on Start (Value 0-255)
+																							// Initiate LED status
+	ActKey(PULSE+KEYON+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED1)); 						// set LED 1 ON 	[Flight Assist]
+	ActKey(PULSE+KEYON+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED2)); 						// set LED 2 ON 	[Rotational Correction]
+	ActKey(PULSE+KEYON+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED3)); 						// set LED 3 OFF 	[Silent Running]
+	ActKey(PULSE+KEYON+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED4)); 						// set LED 4 OFF	[Cargo Scoop]
+	ActKey(PULSE+KEYON+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED5)); 						// set LED 5 OFF	[Landing Gear]
+
+	initCustomCommands();																	// Initiate Custom Macros (See AD_EDMacros.tmh)
+	initSetThrottleCurves(); 
+	initToggleRotationCorrection();
+	initEnhancedFAOFF();
+	initToggleLandingGear();
+	initToggleCamera();
+	initSetCombinedFire(0);
+	initIDLEMaster();
+	initPrintState();
+
+	initJoystickAxis();																		// Initiate Axis Mappings
+	initThrottleAxis();
+																							// Map Throttle Flaps to Joystick Curve Presets
+	MapKey(&Throttle, FLAPU, EXEC("initSetJoystickCurves();")); 							// Flaps UP  
+	MapKey(&Throttle, FLAPM, EXEC("initSetJoystickCurves();")); 							// Flaps MIDDLE
+	MapKey(&Throttle, FLAPD, EXEC("initSetJoystickCurves();")); 							// Flaps DOWN
+	
+																							// Map Autopilot Select Toggle to Throttle Axis Presets
+	MapKey(&Throttle, APPAT, EXEC(															// Autopilot PATH UP (+50% Only)
+					"if (!Throttle[IDLELON]) ActKey(KEYON+PULSE+mThrottleFwdOnly);"));		// Safety: Only Activate When Throttle IDLE is not Locked ON
+	MapKey(&Throttle, APAH, EXEC(															// Autopilot ALT/HDG MIDDLE (Default)
+					"if (!Throttle[IDLELON]) ActKey(KEYON+PULSE+mThrottleFullScale);"));	// Safety: Only Activate When Throttle IDLE is not Locked ON
+	MapKey(&Throttle, APALT, EXEC(															// Autopilot ALT DOWN (Shorter 50% Travel)
+					"if (!Throttle[IDLELON]) ActKey(KEYON+PULSE+mThrottlePrecision);"));	// Safety: Only Activate When Throttle IDLE is not Locked ON
+	
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//	
+// MAP JOYSTICK CONTROLS //																						
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//																										
+	MapKey(&Joystick, TG1, EXEC(																					// Trigger 1
+								"if(!Joystick[H4P]) ActKey(KEYON+DOWN+PrimaryFire);"
+								"if(Joystick[H4P]) initSetCombinedFire(1);"));										// Hold CMS Hat Switch + Primary Trigger to change Combined Fire Mode
+	MapKeyR(&Joystick, TG1, UP+PrimaryFire);
+//	MapKey(&Joystick, TG2, SecondaryFire);																			// Trigger 2
+
+	MapKey(&Joystick, S1, TEMPO(PULSE+FireChaffLauncher, PULSE+DeployHeatSink, LongPressDelay)); 					// Master Mode Control 	[Short: Chaff, 		Long: Heat Sink]
+	MapKey(&Joystick, S2, TEMPO(PULSE+SRVTurret, PULSE+UseShieldCell, LongPressDelay)); 							// Weapon Release 		[Short: Chaff, 	 	Long: Shield Cell]
+	MapKey(&Joystick, S3, SecondaryFire); 																			// Pinky Button
+//	MapKey(&Joystick, S4, 0); 																						// Pinky Trigger
+
+	MapKey(&Joystick, H1U, TEMPO(EXEC(																				// Trim Switch UP
+									"if(!Joystick[S4]) ActKey(KEYON+PULSE+WingmanTarget);"
+									"if(Joystick[S4]) ActKey(KEYON+PULSE+FighterDock);"),
+								 EXEC(
+									"if(!Joystick[S4]) ActKey(KEYON+PULSE+WingmanNavlock);"),
+							LongPressDelay));
+	MapKey(&Joystick, H1D, TEMPO(EXEC(																				// Trim Switch DOWN
+									"if(!Joystick[S4]) ActKey(KEYON+PULSE+SelectWingman2);"
+									"if(Joystick[S4]) ActKey(KEYON+PULSE+FighterFollow);"),
+								 EXEC(
+								 	"if(!Joystick[S4]) ActKey(KEYON+PULSE+FighterOrders);"),
+							LongPressDelay));
+	MapKey(&Joystick, H1L, TEMPO(EXEC(																				// Trim Switch LEFT
+									"if(!Joystick[S4]) ActKey(KEYON+PULSE+SelectWingman1);"
+									"if(Joystick[S4]) ActKey(KEYON+PULSE+FighterHoldPosition);"),
+								 EXEC(
+								 	"if(!Joystick[S4]) ActKey(KEYON+PULSE+FighterDefensive);"),
+							LongPressDelay));	
+	MapKey(&Joystick, H1R, TEMPO(EXEC(																				// Trim Switch RIGHT
+									"if(!Joystick[S4]) ActKey(KEYON+PULSE+SelectWingman3);"
+									"if(Joystick[S4]) ActKey(KEYON+PULSE+FighterHoldFire);"),
+								 EXEC(
+								 	"if(!Joystick[S4]) ActKey(KEYON+PULSE+FighterAggressive);"),
+							LongPressDelay));	
+
+//	MapKey(&Joystick, H1U, 0); 																						// Trim Switch UP
+//	MapKey(&Joystick, H1D, 0); 																						// Trim Switch DOWN
+//	MapKey(&Joystick, H1L, 0); 																						// Trim Switch LEFT
+//	MapKey(&Joystick, H1R, 0); 																						// Trim Switch RIGHT
+
+//	MapKey(&Joystick, H2U, 0); 																						// Target Management Switch (TMS) UP
+//	MapKey(&Joystick, H2D, 0);																						// Target Management Switch (TMS) DOWN
+//	MapKey(&Joystick, H2L, 0); 																						// Target Management Switch (TMS) LEFT
+//	MapKey(&Joystick, H2R, 0); 																						// Target Management Switch (TMS) RIGHT
+
+	MapKey(&Joystick, H3U, TEMPO(PowerEng, TEMPO(mPowerEngSys, mPowerEngWep, PIPPressDelay), PIPPressDelay));  		// Data Management Switch (DMS) UP 	  PIPS[Short: 1xENG, 	Med: 4xENG 2xSYS, Long: 4xENG 2xWEP]
+	MapKey(&Joystick, H3D, TEMPO(BalancePower, TEMPO(mPowerTank, mPowerOffensive, PIPPressDelay), PIPPressDelay));	// Data Management Switch (DMS) DOWN  PIPS[Short: Balance,	Med: Tank,   	  Long: Offensive]
+	MapKey(&Joystick, H3L, TEMPO(PowerSys, TEMPO(mPowerSysEng, mPowerSysWep, PIPPressDelay), PIPPressDelay)); 		// Data Management Switch (DMS) LEFT  PIPS[Short: 1xSYS, 	Med: 4xSYS 2xENG, Long: 4xSYS 2xWEP]
+	MapKey(&Joystick, H3R, TEMPO(PowerWep, TEMPO(mPowerWepEng, mPowerWepSys, PIPPressDelay), PIPPressDelay)); 		// Data Management Switch (DMS) RIGHT PIPS[Short: 1xWEP, 	Med: 4xWEP 2xENG, Long: 4xWEP 2xSYS]
+
+//	MapKey(&Joystick, H4U, 0); 																						// Countermeasures Management Switch (CMS) UP
+//	MapKey(&Joystick, H4D, 0); 																						// Countermeasures Management Switch (CMS) DOWN
+//	MapKey(&Joystick, H4L, 0); 																						// Countermeasures Management Switch (CMS) LEFT
+//	MapKey(&Joystick, H4R, 0); 																						// Countermeasures Management Switch (CMS) RIGHT
+//	MapKey(&Joystick, H4P, 0); 																						// Countermeasures Management Switch (CMS) PUSH
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// MAP THROTTLE ARM CONTROLS
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//																									
+	MapKey(&Throttle, SC, TEMPO(0, EXEC(																			// Slew Control Button
+								 	"if(!Throttle[APALT]) if(!Throttle[IDLELON]) ActKey(KEYON+PULSE+EngineBoost);"),
+						  MiniPressDelay));																			// Safety: Won't Boost when in Precise Throttle or IDLE! Plus 150ms Delay :)
+//	MapKey(&Throttle, LTB, 0); 																						// Left Throttle Button (RED)
+
+//	MapKey(&Throttle, MSU, 0); 																						// Mic Switch UP
+//	MapKey(&Throttle, MSD, 0); 																						// Mic Switch DOWN
+//	MapKey(&Throttle, MSL, 0); 																						// Mic Switch LEFT
+//	MapKey(&Throttle, MSR, 0); 																						// Mic Switch RIGHT
+	MapKey(&Throttle, MSP, EXEC(																					// Mic Switch PUSH
+						   		"if(Throttle[EFRNORM]) ActKey(KEYON+DOWN+InternalVoiceCommsPTT);"					// If Mic Toggle OFF: Use Internal Voice Comms Open Comms
+						   		"if(Throttle[EFROVER]) ActKey(KEYON+DOWN+ExternalVoiceCommsPTT);"));				// If Mic Toggle ON:  Use External Voice Comms Open Comms
+	MapKeyR(&Throttle, MSP, EXEC(																					// Mic Switch PUSH RELEASE
+						   		"ActKey(KEYON+UP+InternalVoiceCommsPTT);"											// Release PTT Buttons
+						   		"ActKey(KEYON+UP+ExternalVoiceCommsPTT);"));
+
+//	MapKey(&Throttle, CSU, 0); 																						// Coolie Hat Switch UP
+//	MapKey(&Throttle, CSD, 0);																						// Coolie Hat Switch DOWN
+//	MapKey(&Throttle, CSL, PULSE+mJumpPrevSubSys); 																	// Coolie Hat Switch LEFT
+//	MapKey(&Throttle, CSR, PULSE+mJumpNextSubSys); 																	// Coolie Hat Switch RIGHT
+
+	MapKey(&Throttle, SPDF, EXEC("initEnhancedFAOFF();"));															// Speedbrake Forward TOGGLE ON
+	MapKeyR(&Throttle, SPDF, EXEC("initEnhancedFAOFF();"));															// Speedbrake Forward TOGGLE RELEASE
+	MapKey(&Throttle, SPDB, CHAIN(DOWN+FlightAssist, LED(&Throttle, LED_ONOFF, LED_CURRENT-LED1))); 				// Speedbrake Back HOLD
+	MapKeyR(&Throttle, SPDB, CHAIN(UP+FlightAssist, LED(&Throttle, LED_ONOFF, LED_CURRENT+LED1))); 					// Speedbrake Back RELEASE
+
+	MapKey(&Throttle, BSF, PULSE+GalaxyMap); 																		// Boat Switch Throttle FORWARD
+	MapKey(&Throttle, BSM, PULSE+UIBack); 																			// Boat Switch Throttle MIDDLE		[Centering Switch will Exit Maps]
+	MapKey(&Throttle, BSB, PULSE+SystemMap); 																		// Boat Switch Throttle BACK
+
+	MapKey(&Throttle, CHF, TEMPO(FrameShiftDrive, Supercruise, LongPressDelay)); 								 	// China Hat FORWARD [When Route Blocked HOLD for Supercruise]
+	MapKey(&Throttle, CHB, TEMPO(PULSE+SelectNextSystemInRoute, PULSE+OrbitalLines, LongPressDelay));				// China Hat BACK 	 [Short: Next Sys Route, *Very Long: Manually Start/Stop ShadowPlay]
+
+	MapKey(&Throttle, PSF, CHAIN(PULSE+ShowFramerate, D(),PULSE+ShowConnectionStatus)); 							// Pinky Throttle Switch FORWARD	[Displays both FPS & PING]
+	MapKeyR(&Throttle, PSF, CHAIN(PULSE+ShowFramerate, D(),PULSE+ShowConnectionStatus)); 							// Pinky Throttle Switch FORWARD RELEASE
+	MapKey(&Throttle, PSM, 0); 																						// Pinky Throttle Switch MIDDLE
+	MapKey(&Throttle, PSB, PULSE+HideShipGUI);																		// Pinky Throttle Switch BACK		[Hides Ship's Holographic Display]
+	MapKeyR(&Throttle, PSB, PULSE+HideShipGUI);																		// Pinky Throttle Switch BACK RELEASE
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// MAP THROTTLE BASE CONTROLS
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//	
+	MapKey(&Throttle, EFLNORM, EXEC("initToggleCamera();")); 														// Engine Fuel Flow Norm/Override Switches LEFT
+	MapKeyR(&Throttle, EFLNORM, EXEC("initToggleCamera();")); 														// Engine Fuel Flow Norm/Override Switches LEFT RELEASE
+	MapKey(&Throttle, EFLOVER, 0); 																					// Engine Fuel Flow Norm/Override Switches LEFT OFF
+	MapKey(&Throttle, EFRNORM, 0); 																					// Engine Fuel Flow Norm/Override Switches RIGHT 		[Mic PTT Toggle ON (External)]
+//	MapKeyR(&Throttle, EFRNORM, 0); 																				// Engine Fuel Flow Norm/Override Switches RIGHT RELEASE 
+	MapKey(&Throttle, EFROVER, 0); 																					// Engine Fuel Flow Norm/Override Switches RIGHT OFF 	[Mic PTT Toggle OFF (Internal)]
+
+	MapKey(&Throttle, EOLIGN, TEMPO(EXEC(																			// Engine Operate Ign/Norm LEFT UP
+										"if(!Joystick[S4]) ActKey(KEYON+PULSE+TrackIRCenter);"						// [Short: 		 TIR Center]
+										"if(Joystick[S4]) ActKey(KEYON+PULSE+ToggleVoiceAttackGlobal);"),			// [Short+Pinky: VA Toggle]
+							  PULSE+TrackIRPause, LongPressDelay));													// [Long: 		 TIR Pause]						  
+	MapKey(&Throttle, EOLNORM, 0); 																					// Engine Operate Ign/Norm LEFT OFF
+	MapKey(&Throttle, EOLMOTOR, EXEC(																				// Engine Operate Ign/Norm LEFT DOWN	[Toggle between Push-To-Talk & Open Comms]
+									"if(Throttle[EFRNORM]) ActKey(KEYON+DOWN+ExternalVoiceCommsPTT);"				// If Mic Toggle ON:  Use External Voice Comms Open Comms
+									"if(Throttle[EFROVER]) ActKey(KEYON+DOWN+InternalVoiceCommsPTT);"));			// If Mic Toggle OFF: Use Internal Voice Comms Open Comms
+	MapKeyR(&Throttle, EOLMOTOR, EXEC(																				// Engine Operate Ign/Norm LEFT RELEASE
+									"ActKey(KEYON+UP+InternalVoiceCommsPTT);"
+									"ActKey(KEYON+UP+ExternalVoiceCommsPTT);"));
+
+	MapKey(&Throttle, EORIGN, TEMPO(EXEC(																			// Engine Operate Ign/Norm RIGHT UP
+										"if(!Joystick[S4]) if(!Joystick[H4P]) initToggleShipLights(1);"				// If no Modifier held, default Ship Lights
+										"if(Joystick[S4]) ActKey(KEYON+PULSE+ChangeWeaponColor);"					// If Modifier 1 held, Change Weapon Color
+										"if(Joystick[H4P]) ActKey(KEYON+PULSE+ChangeEngineColor);"),				// If Modifier 2 held, Change Engine Color
+							  PULSE+ShipLights, LongPressDelay));													// [Long: Reset Ship Lights (when out of sync)]
+	MapKey(&Throttle, EORNORM, 0); 																					// Engine Operate Ign/Norm RIGHT OFF
+	MapKey(&Throttle, EORMOTOR, CHAIN(DOWN+SilentRunning, LED(&Throttle, LED_ONOFF, LED_CURRENT+LED3))); 			// Engine Operate Ign/Norm RIGHT DOWN
+	MapKeyR(&Throttle, EORMOTOR, CHAIN(UP+SilentRunning, LED(&Throttle, LED_ONOFF, LED_CURRENT-LED3))); 			// Engine Operate Ign/Norm RIGHT RELEASE
+
+	MapKey(&Throttle, APUON, EXEC("initToggleRotationCorrection();")); 												// APU START UP
+	MapKeyR(&Throttle, APUON, EXEC("initToggleRotationCorrection();")); 											// APU START RELEASE
+	MapKey(&Throttle, APUOFF, 0); 																					// APU OFF DOWN
+
+	MapKey(&Throttle, LDGH, TEMPO(EXEC(																				// Landing Gear/Warning Silence Button 
+								  	"if(!Joystick[S4]) ActKey(KEYON+PULSE+TakeSteamScreenshot);"					// [Short: 		 Steam Screenshot]
+								  	"if(Joystick[S4]) ActKey(KEYON+PULSE+HighResScreenshot);"),						// [Short+Pinky: Hi-Res Screenshot (Solo/Private Modes only)] 
+								  EXEC(
+								  	"if(!Joystick[S4]) ActKey(KEYON+PULSE+NVidiaCaptureVideoAuto);" 				// [Long: 		 Save Last xx mins NVidia]
+								  	"if(Joystick[S4]) ActKey(KEYON+PULSE+NVidiaCaptureManual);"), 					// [Long+Pinky:  Manual Start/Stop NVidia]
+							ExtraPressDelay));
+							
+	MapKey(&Throttle, EACON, EXEC("initToggleLandingGear();")); 													// EAC ARM UP
+	MapKeyR(&Throttle, EACON, EXEC("initToggleLandingGear();"));													// EAC ARM UP RELEASE
+	MapKey(&Throttle, EACOFF, 0); 																					// EAC OFF DOWN
+
+	MapKey(&Throttle, RDRNRM, CHAIN(DOWN+CargoScoop, LED(&Throttle, LED_ONOFF, LED_CURRENT+LED4))); 				// RDR ALTM NRM UP
+	MapKeyR(&Throttle, RDRNRM, EXEC("if(Joystick[S4]) if(Joystick[H4P]) ActKey(KEYON+PULSE+JettisonAllCargo);"));	// RDR ALTM NRM UP REVERSE [Pinky+Mod2+Release Jettisons All Cargo!]
+	MapKey(&Throttle, RDRDIS, CHAIN(UP+CargoScoop, LED(&Throttle, LED_ONOFF, LED_CURRENT-LED4))); 					// RDR ALTM DIS DOWN
+
+	MapKey(&Throttle, APENG, TEMPO(EXEC(																			// Autopilot Engage Button 
+							 			"if(!Joystick[S4]) ActKey(KEYON+PULSE+DeployHardpoints);"					// [Short: 		 Deploy/Retract Hardpoints]
+							 			"if(Joystick[S4]) ActKey(KEYON+PULSE+mRequestDock);"),					 	// [Short+Pinky: Auto-Dock Request]
+								   EXEC(
+								   		"if(!Joystick[S4]) ActKey(KEYON+PULSE+DeployHardpoints);" 					// Disengage & Escape
+								   		"if(!Joystick[S4]) ActKey(KEYON+mPowerSysEng);"								// Set PIPs to SYSx4 ENGx2
+								   		"if(!Joystick[S4]) DeferCall(500, &ActKey, KEYON+PULSE+FrameShiftDrive);"	// After Retracting Hardpoints, Engage FSD
+								   		"if(Joystick[S4]) ActKey(KEYON+PULSE+mRequestDock);"),						// [Long+Pinky: Auto-Dock Request]
+							 LongPressDelay));																		// [Have System selected prior to High Wake]
+//	MapKey(&Throttle, APDIS, 0); 																					// Autopilot Disengage Button
+
+	MapKey(&Throttle, IDLELON, EXEC("initIDLEMaster();"));															// Throttle Idle Detents LEFT ON	[Locking (Down): Stationary]
+	MapKeyR(&Throttle, IDLELON, EXEC(																				// Throttle Idle Detents LEFT ON RELEASE
+					  				"LockAxis(&Throttle, THR_LEFT, 0);"												// Unlocks the Throttle Axes when exiting IDLE
+					  				"LockAxis(&Throttle, THR_RIGHT, 0);"
+					  				"ActKey(KEYON+UP+SRVHandbrake);"));												// Release the SRV Handbrake
+//	MapKey(&Throttle, IDLELOFF, 0);																					// Throttle Idle Detents LEFT OFF
+//	MapKey(&Throttle, IDLERON, 0); 																					// Throttle Idle Detents RIGHT ON
+//	MapKeyR(&Throttle, IDLERON, 0);																					// Throttle Idle Detents RIGHT ON RELEASE
+//	MapKey(&Throttle, IDLEROFF, 0); 																				// Throttle Idle Detents RIGHT OFF
+
+	printf("\x0a");
+	printf("Enhanced Elite Dangerous Profile Engineered by Aussiedroid\x0a");
+	printf("\x0a");
+	printf("Fly Safe CMDR!\x0a");
+}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// EVENT HANDLER //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+int EventHandle(int type, alias o, int x) {
+	int LED_BRT;
+
+	if (&o == &Throttle & x == THR_FC & Joystick[S4]) {										// Throttle: LED On-The-FLy Backlight Control
+		LED_BRT = (AxisVal(Throttle[THR_FC], &axdata) - 32766) / 256 * -1;					// HOLD S4 (Pinky Trigger) on Joystick & Move Friction Control Axis
+		ActKey(PULSE+KEYON+LED (&Throttle, LED_INTENSITY, LED_BRT));
+	}
+	DefaultMapping(&o, x);
+}

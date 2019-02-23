@@ -1,0 +1,12 @@
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// DEFAULT SETTINGS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+	define PulseTime 25							// PULSE+ Delay time
+	define DelayTime 75							// D() Delay time
+
+	define KBLayout KB_ENG						// Default Keyboard Layout
+
+	define MiniPressDelay 150					// Shortest Delay
+	define ShortPressDelay 250					// Shorter Delay
+	define LongPressDelay 500					// Standard Delay
+	define ExtraPressDelay 1500					// Longest Delay (For actions you want to be VERY careful with!)

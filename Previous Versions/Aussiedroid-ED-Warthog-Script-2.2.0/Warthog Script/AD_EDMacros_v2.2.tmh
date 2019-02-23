@@ -1,0 +1,314 @@
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// MACRO VARIABLE INITALISATION //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+	int mRequestDock, mJumpPrevSubSys, mJumpNextSubSys;
+	int mPowerEngSys, mPowerEngWep, mPowerSysWep, mPowerSysEng, mPowerWepSys, mSplitPowerEng, mSplitPowerSys, mSplitPowerWep, mPowerTank, mPowerOffensive;
+	int mThrottleFwdOnly, mThrottleFullScale, mThrottlePrecision, mThrottleTrimmed, mThrottleFullScaleCustom;
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// HARDWARE MAPPINGS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+	int initSetJoystickCurves() {																// FLAP position sets joystick curve profile
+		int profile = 1;																		// Three different presets are selectable on the fly
+		if (Throttle[FLAPU]) profile = 0;
+			if (Throttle[FLAPD]) profile = 2;
+			SetSCurve(&Joystick, JOYX, 0, JS_DEADZONE, 0, JS_CURVE[profile], JS_ZOOM[profile]);
+			SetSCurve(&Joystick, JOYY, 0, JS_DEADZONE, 0, JS_CURVE[profile], JS_ZOOM[profile]);
+			printf("Joystick Profile[%d]: Curve=%d, Zoom=%d\x0a", profile, JS_CURVE[profile], JS_ZOOM[profile]);
+	}
+																								// Autopilot Select Switch position sets Throttle Curve profile
+	int initSetThrottleCurves() {																// Three different presets are selectable on the fly
+		mThrottleFwdOnly = EXEC(  																// Initialising Throttle Forward Only Preset (SRV etc)
+								"TrimDXAxis(DX_Z_AXIS, SET(-1024));"							// *TrimDXAxis(axis, +/-1024) trim is additive, SET forces trim value, CURRENT reads axis.pos
+								"SetSCurve(&Throttle, THR_RIGHT, 0, -100, 0, 0);"				// *SetSCurve(&Device, axis, left_deadzone%, center_deadzone%, right_deadzone%, curve(-20...20), scale)
+								"SetThrottle();");												
+		mThrottleFullScale = EXEC(  															// Make Throttle Linear & Full Scale	(Default: Full Range)	
+								"TrimDXAxis(DX_Z_AXIS, SET(0));"								// Initialising Throttle Full Scale Preset 
+								"SetSCurve(&Throttle, THR_RIGHT, 0, 5, 0, 0);"					// ..(Alternative= "SetJCurve(&Throttle, THR_RIGHT, 50, 50);")
+								"SetThrottle();");												// *SetJCurve(&device, axis, physical axis value%, DirectX output value%)
+		mThrottlePrecision = EXEC( 																// Initialising Throttle Precision Preset (Docking etc)
+								"TrimDXAxis(DX_Z_AXIS, SET(0));" 								// Allows Throttle Movement ONLY to the middle of blue zone
+								"SetSCurve(&Throttle, THR_RIGHT, 0, 2, 0, 2, -2);"
+								"SetThrottle();");
+		mThrottleTrimmed = EXEC(  																// Initialising Throttle Trimmed 25% @ Beginning/End Preset (ALTERNATIVE)
+								"TrimDXAxis(DX_Z_AXIS, SET(0));" 								// <Unmapped>
+								"SetSCurve(&Throttle, THR_RIGHT, -50, 0, -50, 0);"
+								"SetThrottle();");
+		mThrottleFullScaleCustom = EXEC(  														// Initialising Throttle Full Scale - Max Shorter @ 80% Preset (ALTERNATIVE)
+								"TrimDXAxis(DX_Z_AXIS, SET(0));" 								// Slightly Shorter Fwd travel distance for RSeat RS1 Cockpit.
+								"SetJCurve(&Throttle, THR_RIGHT, 80, 100);"						// <Unmapped>
+								"SetThrottle();");
+	}
+
+	int initJoystickAxis() { 																	// Set Default Joystick Axis
+		MapAxis(&Joystick, JOYX, DX_X_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);
+			SetSCurve(&Joystick, JOYX, 0, 0, 0, 0, 0);
+		MapAxis(&Joystick, JOYY, DX_Y_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);
+			SetSCurve(&Joystick, JOYY, 0, 0, 0, 0, 0);
+		printf("Initialising Joystick Axis\x0a");
+	}
+
+	int initThrottleAxis() { 																	// Set Default Throttle Axis
+		MapAxis(&Throttle, THR_RIGHT, DX_Z_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);					// Set Right Throttle
+			SetJCurve(&Throttle, THR_RIGHT, 50, 50);
+		MapAxis(&Throttle, THR_LEFT, DX_ZROT_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);					// Set Left Throttle
+			SetSCurve(&Throttle, THR_LEFT, 0, 0, 0, 0, 0);
+		MapAxis(&Throttle, SCX, DX_XROT_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);						// Set Slew Control X Axis
+			SetSCurve(&Throttle, SCX, 0, 20, 0, 2, -1);
+		MapAxis(&Throttle, SCY, DX_YROT_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);						// Set Slew Control Y Axis
+			SetSCurve(&Throttle, SCY, 0, 20, 0, 2, -1);
+		MapAxis(&Throttle, THR_FC, DX_SLIDER_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);					// Set Friction Control Axis Curve (Sensor Range Zoom Scaling) 
+			SetSCurve(&Throttle, THR_FC, 0, 0, 0, 0, 0);										// (Default)
+//			SetCustomCurve(&Throttle, THR_FC, LIST(0,0, 33,25, 66,50, 80,75, 100,100)); 		// (OPTIONAL OVERRIDE) (Linear Recommended in ED) *LIST(Axis physical position, Axis output Value)
+		printf("Initialising Throttle Axis\x0a");
+		printf("\x0a");
+		printf("--------------------------------------------------------------------------\x0a");
+	}
+	int SetThrottle() {																			// Prevents Throttle jumping around on mode changes
+		DXAxis(DX_Z_AXIS, -AxisVal(Throttle[THR_RIGHT], &axdata));
+	}
+
+	int initSetCombinedFire(int toggleValue) { 													// Calculate Combined Fire Status
+		if(toggleValue) {																		// When disabled, Trigger 2 is independant on Pinky Button (DX3) only
+			combinePriSecFire = !combinePriSecFire;	}
+		if(combinePriSecFire){
+			printf("Trigger 2: Set to COMBINED Primary + Secondary Fire\x0a");
+			MapKey(&Joystick, TG2, CHAIN(PrimaryFire, SecondaryFire));	} 
+		else {
+			printf("Trigger 2: Set to SEPARATE Fire\x0a");
+			MapKey(&Joystick, TG2, 0);	}
+	}
+	
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// CUSTOM FUNCTIONS //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+	int initCustomCommands() {																	// MACROS Include a series of automated key presses to perform a specific task.
+		mRequestDock = CHAIN(																	// MACRO: Auto-Docking Request //  
+			LOCK+PULSE+TargetPanel, D(),
+			PULSE+UINextPanel, D(),																// Limitation: This will only work correctly if Target Panel cursor in 
+			PULSE+UINextPanel, D(),																//			   default/orig position, else will be misaligned.
+			PULSE+UISelect, D(),
+			PULSE+UIDown, D(),
+			PULSE+UISelect, D(),
+			PULSE+UIPrevPanel, D(),
+			PULSE+UIPrevPanel, D(),
+			PULSE+UIBack, LOCK);
+
+		mJumpPrevSubSys = CHAIN(																// MACRO: Select Previous Subsystem x6 (Targets Powerplant, or close to it)
+			PULSE+SelectPrevSubsystem, D(),														// HOLD down Previous Subsystem button to activate
+			PULSE+SelectPrevSubsystem, D(),														// <Unmapped>
+			PULSE+SelectPrevSubsystem, D(),
+			PULSE+SelectPrevSubsystem, D(),
+			PULSE+SelectPrevSubsystem, D(),
+			PULSE+SelectPrevSubsystem);
+
+		mJumpNextSubSys = CHAIN(																// MACRO: Select Next Subsystem x5 (Targets ??, or close to it)
+			PULSE+SelectNextSubsystem, D(),														// HOLD down Next Subsystem button to activate
+			PULSE+SelectNextSubsystem, D(),														// <Unmapped>
+			PULSE+SelectNextSubsystem, D(),
+			PULSE+SelectNextSubsystem, D(),
+			PULSE+SelectNextSubsystem);
+
+		mPowerEngSys = CHAIN(																	// MACRO: Advanced PIP Management: 4xENG, 2xSYS
+			PULSE+BalancePower, D(),															// HOLD down PIP to Engines button to activate
+			PULSE+PowerEng, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerEng);
+
+		mPowerEngWep = CHAIN(																	// MACRO: Advanced PIP Management: 4xENG, 2xWEP
+			PULSE+BalancePower, D(),															// <Unmapped>
+			PULSE+PowerEng, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerEng);
+			
+		mPowerSysWep = CHAIN(																	// MACRO: Advanced PIP Management: 4xSYS, 2xWEP
+			PULSE+BalancePower, D(),															// HOLD down PIP to System button to activate
+			PULSE+PowerSys, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerSys);
+
+		mPowerSysEng = CHAIN(																	// MACRO: Advanced PIP Management: 4xSYS, 2xENG
+			PULSE+BalancePower, D(),															// HOLD down PIP to System button to activate
+			PULSE+PowerSys, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerSys);
+
+		mPowerWepSys = CHAIN(																	// MACRO: Advanced PIP Management: 4xWEP, 2xSYS
+			PULSE+BalancePower, D(),															// HOLD down PIP to Weapon button to activate
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerWep);
+
+		mSplitPowerEng = CHAIN(																	// MACRO: PIP ALTERNATIVE: 4xENG, 1xSYS, 1xWEP
+			PULSE+BalancePower, D(), 															// LONG HOLD down PIP to Engines button to activate
+			PULSE+PowerEng, D(), 
+			PULSE+PowerEng);
+
+		mSplitPowerSys = CHAIN(																	// MACRO: PIP ALTERNATIVE: 4xSYS, 1xENG, 1xWEP
+			PULSE+BalancePower, D(), 															// LONG HOLD down PIP to System button to activate
+			PULSE+PowerSys, D(), 
+			PULSE+PowerSys);
+
+		mSplitPowerWep = CHAIN(																	// MACRO: PIP ALTERNATIVE: 4xWEP, 1xSYS, 1xENG
+			PULSE+BalancePower, D(), 															// LONG HOLD down PIP to Weapon button to activate
+			PULSE+PowerWep, D(), 
+			PULSE+PowerWep);
+
+		mPowerTank = CHAIN(																		// MACRO: PIP ALTERNATIVE: 3xWEP, 3xSYS
+			PULSE+BalancePower, D(),															// HOLD down Balance PIPs button to activate
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerSys);
+
+		mPowerOffensive = CHAIN(																// MACRO: PIP ALTERNATIVE: 3xWEP, 3xENG 
+			PULSE+BalancePower, D(),															// LONG HOLD down Balance PIPs button to activate
+			PULSE+PowerEng, D(),
+			PULSE+PowerWep, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerEng, D(),
+			PULSE+PowerWep);
+	}
+																								// TOGGLE functions ensure Warthog toggle switch keeps correct positioning.
+	int initToggleCamera(){																		// TOGGLE: Classified (External) 'Debug' Camera	
+		if(Throttle[EFLNORM]){																	// Default: OFF
+			if(!inCameraMode) {
+				printf("Classified Camera Mode: ON\x0a");
+				inCameraMode = 1;
+				ActKey(KEYON+PULSE+ClassifiedCamera);
+				DeferCall(60, &ActKey, KEYON+PULSE+SPC); 										// Automatically bypasses the pop-up window on entry (Default:60ms) :)
+				ActKey(KEYON+PULSE+SetSpeed0);
+				ActKey(KEYON+PULSE+SetSpeedNeg25);
+			}
+		}
+		if(!Throttle[EFLNORM]){
+			if(inCameraMode) {
+				printf("Classified Camera Mode: OFF\x0a");
+				inCameraMode = 0;
+				ActKey(KEYON+PULSE+ClassifiedCamera);
+			}
+		}
+	}
+
+	int initToggleRotationCorrection() {														// TOGGLE: Rotational Correction	
+		if(Throttle[APUON]){																	// Default: ON (Position toggle switch UP on startup)
+			if(!RCorrection) {																	// Press 'F4' to toggle manually if misaligned, or change in Sys Panel.
+				printf("Rotation Correction: ENABLED\x0a");
+				RCorrection = 1;
+				ActKey(KEYON+PULSE+RotationalCorrection);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED2)); 				// set LED 2 ON
+			}
+		}
+		if(!Throttle[APUON]){
+			if(RCorrection) {
+				printf("Rotation Correction: DISABLED\x0a");
+				RCorrection = 0;
+				ActKey(KEYON+PULSE+RotationalCorrection);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED2)); 				// set LED 2 OFF
+			}
+		}
+	
+	}
+
+	int initToggleLandingGear() {																// TOGGLE: Landing Gear	
+		if(Throttle[EACON]){																	// Default: ON (Assumes you are docked when loading into ED) 
+			if(!Gears) {																		// Press 'L' to toggle manually if starting in space, or change in Sys Panel.
+				printf("Landing Gear: DEPLOYED\x0a");
+				Gears = 1;
+				ActKey(KEYON+PULSE+LandingGear);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED5)); 				// set LED 5 ON
+			}
+		}
+		if(!Throttle[EACON]){
+			if(Gears) {
+				printf("Landing Gear: RETRACTED\x0a");
+				Gears = 0;
+				ActKey(KEYON+PULSE+LandingGear);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED5)); 				// set LED 5 OFF
+			}
+		}
+	
+	}
+
+	int initToggleShipLights(int toggleValue) { 												// FUNCTION: Calculate ShipLights state.
+		if(toggleValue) {																		// Dims Throttle LED Backlight intensity when active.
+			Lights = !Lights;	}																// Note: This can get a little buggy with the SRV multiple lighting levels.
+		if(Lights){																				// Press 'INSERT' to toggle manually if SRV has messed things up or extra long hold to reset.
+				printf("Lights: Illuminate!\x0a");
+				ActKey(KEYON+PULSE+ShipLights);
+				ActKey(ShipLights);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_INTENSITY, 50)); 							// Dim Throttle Lights
+				}
+		if(!Lights) {
+				printf("Lights: Deluminate!\x0a");
+				ActKey(KEYON+PULSE+ShipLights);
+				ActKey(ShipLights);
+				ActKey(KEYON+PULSE+LED(&Throttle, LED_INTENSITY, 172)); 						// Return Throttle Lights to Default
+		}
+	}
+
+	int initEnhancedFAOFF() {																	// FUNCTION: Enhanced Joystick Curves tailored for Flight Assist Off (TOGGLE)
+		if(Throttle[SPDF]) {																	// AKA       "FAOFF LIKE A BOSS!"
+			ActKey(KEYON+DOWN+FlightAssist);
+			SetSCurve(&Joystick, JOYX, 0, 1, 0, 2, -1);											// Reduces the Joystick sensitivity on Forward TOGGLE on FA Off
+			SetSCurve(&Joystick, JOYY, 0, 1, 0, 2, -1);											// Full Joystick sensitivity remains on Back HOLD on FA Off for quick turns in combat
+			ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT-LED1));
+			printf("FA Joystick Profile[2]: Curve=2, Zoom=-1\x0a");
+			}
+		if(!Throttle[SPDF]) {
+			ActKey(KEYON+UP+FlightAssist);
+			SetSCurve(&Joystick, JOYX, 0, 1, 0, 1, 0);											// Return Joystick Curve back to default settings when disabling forward toggle
+			SetSCurve(&Joystick, JOYY, 0, 1, 0, 1, 0);											// Limitation: If you had your Joystick Curve set to UP/DOWN when enabling FA OFF,
+			ActKey(KEYON+PULSE+LED(&Throttle, LED_ONOFF, LED_CURRENT+LED1));					//			   you will need to toggle back to center, then UP/DOWN again to reapply settings.
+			printf("FA Joystick Profile[1]: Curve=1, Zoom=0\x0a");
+			}	
+	}
+	
+	int initIDLEMaster() {																		// FUNCTION: Enforce Throttle IDLE (Stationary) on any Throttle Mode
+		if(!Throttle[APPAT]){																	// Resets Throttle Axis to 0 for Full Range Throttle Modes
+			DXAxis(DX_ZROT_AXIS, 0);															// Prevents issues launching from stations etc
+			DXAxis(DX_Z_AXIS, 0);
+			LockAxis(&Throttle, THR_LEFT, 1);													// Lock Axes to keep null value
+			LockAxis(&Throttle, THR_RIGHT, 1);
+			ActKey(KEYON+DOWN+SRVHandbrake);													// IDLE Doubles as SRV Handbrake ON when on surface
+			}
+		if(Throttle[APPAT]) {																	// Resets Throttle Axis to 0 for Forward Only Throttle Mode
+			DXAxis(DX_ZROT_AXIS, 32767);
+			DXAxis(DX_Z_AXIS, 32767);
+			LockAxis(&Throttle, THR_LEFT, 1);													// Lock Axes to keep null value
+			LockAxis(&Throttle, THR_RIGHT, 1);
+			ActKey(KEYON+DOWN+SRVHandbrake);													// Disengage SRV Handbrake OFF
+			}	
+	}
+
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+// REPORT MACRO STATES //
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+
+	int initPrintState(){																		// Display the status of the macro toggles in Target Script Editor on run.
+		printf("--------------------------------------------------------------------------\x0a");
+		printf("\x0a");
+		printf("ENHANCEMENTS COMPLETE: TARGET Macros & Functions initialised successfully!\x0a");
+		printf("\x0a");
+		printf("--------------------------------------------------------------------------\x0a");
+		printf("Current States:\x0a");
+		printf("\x0a");		
+		printf("Classified Camera Mode	= %d\x0a", inCameraMode);
+		printf("Rotation Correction		= %d\x0a", RCorrection);
+		printf("Combine Pri+Sec Fire 	= %d\x0a", combinePriSecFire);
+		printf("Landing Gear			= %d\x0a", Gears);
+		printf("Ship Lights 			= %d\x0a", Lights);
+		printf("\x0a");
+		printf("Note: Toggles actual position will update values.\x0a");
+		printf("--------------------------------------------------------------------------\x0a");
+		printf("\x0a");
+	}
