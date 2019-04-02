@@ -42,6 +42,7 @@
 	int main() {														// Exclude Hardware from Virtual Device & Manage Additional Devices
 		Configure(&HCougar, MODE_EXCLUDED);
 		Configure(&T16000, MODE_EXCLUDED);
+		Configure(&T16000L, MODE_EXCLUDED);
 		if(UseMFD == 0) {												// No MFDs (Ignore configuring MFDs unless set in User Preferences)
 			Configure(&LMFD, MODE_EXCLUDED);
 			Configure(&RMFD, MODE_EXCLUDED); }

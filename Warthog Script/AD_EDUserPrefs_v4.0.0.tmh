@@ -27,7 +27,7 @@
 														//				TrackIR Center			= 1				(Choose if you use TrackIR head tracking system or related hardware like Tobi Eye Tracker)
 														//				Reset HMD Orientation	= 2 			(Choose if you are a VR User with a Head Mounted Display)
 		// THROTTLE AXIS //
-	define CruiseOnThrottle 	1						// Enable Supercruise on Throttle @ 100% = 1 (default). Disable = 0  [HOLD Pinky Trigger or CMS Hat to activate @ 100%]
+	define CruiseOnThrottle 	0						// Enable Supercruise on Throttle @ 100% = 1 (default). Disable = 0  [HOLD Pinky Trigger or CMS Hat to activate @ 100%]
 
 	define ThrottlePresetUP 	mThrottleFwdOnly		// 7 Presets: 	mThrottleFwdOnly			[   0 -> 100]	mThrottleFwdNonLinear [   0 ~> 100]
 	define ThrottlePresetMID 	mThrottleFullScale		// 	   To	 	mThrottleFullScale			[-100 -> 100]	mThrottleFullNonLinear[-100 ~> 100]

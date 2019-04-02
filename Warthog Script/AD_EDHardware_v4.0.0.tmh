@@ -32,6 +32,10 @@
 			SetSCurve(&Joystick, JOYX, 0, 0, 0, 0, 0);
 		MapAxis(&Joystick, JOYY, DX_Y_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);
 			SetSCurve(&Joystick, JOYY, 0, 0, 0, 0, 0); }
+		MapAxis(&T16000L, JOYX, MOUSE_X_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);
+			SetSCurve(&T16000L, JOYX, 0, 5, 0, 0, 0);  	
+		MapAxis(&T16000L, JOYY, MOUSE_Y_AXIS, AXIS_NORMAL, MAP_ABSOLUTE);
+			SetSCurve(&T16000L, JOYY, 0, 5, 0, 0, 0);
 
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------//
